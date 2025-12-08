@@ -9,8 +9,8 @@ pub struct Scanner<'a> {
     /// 1 past the most recently consumed character. (ie the next character (peek()))
     next: usize,
     line: usize,
-    col: i32,
-    indent_stack: Vec<i32>
+    indent_stack: Vec<i32>,
+    indent_target: i32,
 }
 
 impl<'a> Scanner<'a> {
@@ -21,15 +21,26 @@ impl<'a> Scanner<'a> {
             next: 0,
             line: 1,
             indent_stack: vec![0],
-            col: 0
+            indent_target: 0
         }
     }
 
     pub fn scan_token(&mut self) -> Token {
-        if let Some(token) = self.block() {
-            self.start = self.next;
+        println!("");
+        println!("");
+        println!("target: {}", self.indent_target);
+        println!("curdent: {:?}", self.indent_stack.last());
+        
+        if let Some(token) = self.resolve_indent() {
             return token;
         }
+
+        self.whitespace();
+
+        if let Some(token) = self.newline() {
+            return token;
+        }
+
         self.start = self.next;
 
         let Some(c) = self.advance() else { return self.make_token(TokenType::Eof); };
@@ -45,11 +56,12 @@ impl<'a> Scanner<'a> {
             '+' => return self.make_token(TokenType::Plus),
             '/' => return self.make_token(TokenType::Slash),
             '*' => return self.make_token(TokenType::Star),
+            ':' => return self.make_token(TokenType::Colon),
             '!' => return if self.expect('=') { self.make_token(TokenType::BangEqual) } else { self.make_token(TokenType::Bang) },
             '=' => return if self.expect('=') { self.make_token(TokenType::EqualEqual) } else { self.make_token(TokenType::Equal) },
             '<' => return if self.expect('=') { self.make_token(TokenType::LessEqual) } else { self.make_token(TokenType::Less) },
             '>' => return if self.expect('=') { self.make_token(TokenType::GreaterEqual) } else { self.make_token(TokenType::Greater) },
-            '"' => todo!(),
+            '"' => return self.string(),
             _ => {}
         }
         
@@ -104,8 +116,23 @@ impl<'a> Scanner<'a> {
         if let Some(c) = self.peek() {
             if c != expected { return false;}
             self.advance();
+            return true;
         }
         return false;
+    }
+
+    fn string(&mut self) -> Token {
+        while let Some(c) = self.peek() {
+            if c != '"' {
+                if self.peek().unwrap() == '\n' { self.line += 1; }
+                self.advance();
+            }
+            else {
+                self.advance(); // consume the final ' " '
+                return self.make_token(TokenType::String);
+            }
+        }
+        return self.make_err_token("Unterminated string.");
     }
 
     fn number(&mut self) -> Token {
@@ -157,32 +184,64 @@ impl<'a> Scanner<'a> {
         return self.source[self.start..self.next].to_string();
     }
 
-    fn block(&mut self) -> Option<Token> {
+    fn resolve_indent(&mut self) -> Option<Token> {
+        if self.indent_stack.len() == 0 { 
+            self.indent_stack.push(0);
+        }
+        let current_indent = *self.indent_stack.last().unwrap();
+
+        if self.indent_target == current_indent { return None; }
+
+        if self.indent_target > current_indent {
+            self.indent_stack.push(self.indent_target);
+            return self.make_token(TokenType::Indent).into();
+        }
+
+        if self.indent_target < current_indent {
+            self.indent_stack.pop();
+            if self.indent_stack.len() == 0 || self.indent_target > *self.indent_stack.last().unwrap() {
+                // when dedenting, the target indent should always be a previous indent on the stack.
+                return self.make_err_token("Inconsistent indent.").into();
+            }
+            else {
+                return self.make_token(TokenType::Dedent).into();
+            }
+        }
+
+        return self.make_err_token("Unreachable code reached.").into(); // unreachable
+    }
+    
+    /// Checks for newline. </br>
+    /// If found, processes spaces and tabs to create indent target and raises newline token </br>
+    fn newline(&mut self) -> Option<Token> {
+        if self.expect('\n') {
+            let mut col = 0;
+            loop {
+                let Some(c) = self.peek() else { 
+                    self.indent_target = 0;
+                    return self.make_token(TokenType::NewLine).into(); 
+                };
+                match c {
+                    ' ' => { col += 1; self.advance(); },
+                    '\t' => { col += 4; self.advance(); },
+                    _ =>  {
+                        self.indent_target = col;
+                        return self.make_token(TokenType::NewLine).into();
+                    }
+                };
+            }
+        }
+        return None;
+    }
+
+    /// Skips all spaces and tabs
+    fn whitespace(&mut self) {
         loop {
-            let Some(c) = self.peek() else { return None; };
+            let Some(c) = self.peek() else { return; };
             match c {
-                ' ' => { self.col += 1; self.advance(); },
-                '\t' => { self.col = ((self.col / 8) + 1) * 8; self.advance(); },
-                _ => {
-                    let indent = self.col / 8;
-                    if self.indent_stack.len() == 0 { 
-                        self.indent_stack.push(indent);
-                        return self.make_token(TokenType::Indent).into();
-                    }
-                    let old_indent = *self.indent_stack.last().unwrap();
-                    if indent == old_indent {
-                        return None;
-                    }
-                    if indent > old_indent {
-                        self.indent_stack.push(indent);
-                        return self.make_token(TokenType::Indent).into();
-                    }
-                    if indent < old_indent {
-                        self.indent_stack.pop();
-                        self.indent_stack.push(old_indent - 1);
-                        return self.make_token(TokenType::Dedent).into();
-                    }
-                }
+                ' ' => self.advance(),
+                '\t' => self.advance(),
+                _ => return
             };
         }
     }
@@ -217,15 +276,16 @@ mod test {
     #[test]
     fn indents() {
         let source = r#"
-        var x = 42
-        if x > 1:
-            print "x greater than 1"
-            if x == 42:
-                print "x is 42"
-        "#;
+var x = 42
+if x > 1:
+    print "x greater than 1"
+    if x == 42:
+        print "x is 42"
+"#;
         let mut scanner = Scanner::new(&source);
 
         let expected_tokens = vec![
+            Token::new(TokenType::NewLine, 0, 3, 1),
             Token::new(TokenType::Var, 0, 3, 1),
             Token::new(TokenType::Identifier, 0, 3, 1),
             Token::new(TokenType::Equal, 0, 3, 1),
@@ -253,12 +313,11 @@ mod test {
             Token::new(TokenType::NewLine, 0, 3, 1),
             Token::new(TokenType::Dedent, 0, 3, 1),
             Token::new(TokenType::Dedent, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
             Token::new(TokenType::Eof, 0, 0, 1),
         ];
 
-        for token in expected_tokens.iter() {
-            assert_eq!(token.token_type, scanner.scan_token().token_type);  //temporary!
+        for expected_token in expected_tokens.iter() {
+            assert_eq!(expected_token.token_type, scanner.scan_token().token_type);  //temporary!
         }
     }
 }
