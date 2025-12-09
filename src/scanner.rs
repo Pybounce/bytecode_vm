@@ -35,19 +35,19 @@ impl<'a> Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-        fn next_token(&mut self) -> Token {
-        
+    fn next_token(&mut self) -> Token {
+
         if let Some(token) = self.resolve_indent() {
             return token;
         }
 
         self.whitespace();
 
+        self.start = self.next;
+
         if let Some(token) = self.newline() {
             return token;
         }
-
-        self.start = self.next;
 
         let Some(c) = self.advance() else { return self.make_token(TokenType::Eof); };
 
@@ -88,11 +88,13 @@ impl<'a> Scanner<'a> {
         return self.peek().is_none();
     }
 
-    fn make_token(&self, token_type: TokenType) -> Token {
-        return Token::new(token_type, self.start as i32, (self.next - self.start) as i32, self.line as i32);
+    fn make_token(&mut self, token_type: TokenType) -> Token {
+        let token = Token::new(token_type, self.start as i32, (self.next - self.start) as i32, self.line as i32);
+        self.start = self.next;
+        return token;
     }
 
-    fn make_err_token(&self, message: &str) -> Token {
+    fn make_err_token(&mut self, message: &str) -> Token {
         println!("{}", message);
         return self.make_token(TokenType::Error);   // this is wrong but fine for now.
     }
@@ -222,6 +224,7 @@ impl<'a> Scanner<'a> {
             let newline_token = self.make_token(TokenType::NewLine);
             self.line += 1;
             let mut col = 0;
+
             loop {
                 let Some(c) = self.peek() else { 
                     self.indent_target = 0;
@@ -306,21 +309,21 @@ print "hello"
         let mut scanner = Scanner::new(&source);
 
         let expected_tokens = vec![
-            Token::new(TokenType::NewLine, 0, 3, 1),
+            Token::new(TokenType::NewLine, 0, 1, 1),
 
-            Token::new(TokenType::Print, 0, 3, 1),
-            Token::new(TokenType::String, 0, 3, 1),
+            Token::new(TokenType::Print, 1, 5, 2),
+            Token::new(TokenType::String, 7, 7, 2),
 
-            Token::new(TokenType::Error, 0, 3, 1),
+            Token::new(TokenType::Error, 14, 1, 2),
 
-            Token::new(TokenType::Print, 0, 3, 1),
+            Token::new(TokenType::Print, 15, 5, 3),
             Token::new(TokenType::String, 0, 3, 1),
             Token::new(TokenType::NewLine, 0, 0, 0),
             Token::new(TokenType::Eof, 13, 0, 1),
         ];
 
         for (i, expected_token) in expected_tokens.iter().enumerate() {
-            assert_eq!(expected_token.token_type, scanner.scan_token().token_type, "{}", i);  //temporary!
+            assert_eq!(*expected_token, scanner.scan_token(), "Token Index: {}", i);
         }
     }
 
@@ -459,39 +462,39 @@ if x > 1:
         let mut scanner = Scanner::new(&source);
 
         let expected_tokens = vec![
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::Var, 0, 3, 1),
-            Token::new(TokenType::Identifier, 0, 3, 1),
-            Token::new(TokenType::Equal, 0, 3, 1),
-            Token::new(TokenType::Number, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::If, 0, 3, 1),
-            Token::new(TokenType::Identifier, 0, 3, 1),
-            Token::new(TokenType::Greater, 0, 3, 1),
-            Token::new(TokenType::Number, 0, 3, 1),
-            Token::new(TokenType::Colon, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::Indent, 0, 3, 1),
-            Token::new(TokenType::Print, 0, 3, 1),
-            Token::new(TokenType::String, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::If, 0, 3, 1),
-            Token::new(TokenType::Identifier, 0, 3, 1),
-            Token::new(TokenType::EqualEqual, 0, 3, 1),
-            Token::new(TokenType::Number, 0, 3, 1),
-            Token::new(TokenType::Colon, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::Indent, 0, 3, 1),
-            Token::new(TokenType::Print, 0, 3, 1),
-            Token::new(TokenType::String, 0, 3, 1),
-            Token::new(TokenType::NewLine, 0, 3, 1),
-            Token::new(TokenType::Dedent, 0, 3, 1),
-            Token::new(TokenType::Dedent, 0, 3, 1),
-            Token::new(TokenType::Eof, 0, 0, 1),
+            Token::new(TokenType::NewLine, 0, 1, 1),
+            Token::new(TokenType::Var, 1, 3, 2),
+            Token::new(TokenType::Identifier, 5, 1, 2),
+            Token::new(TokenType::Equal, 7, 1, 2),
+            Token::new(TokenType::Number, 9, 2, 2),
+            Token::new(TokenType::NewLine, 11, 1, 2),
+            Token::new(TokenType::If, 12, 2, 3),
+            Token::new(TokenType::Identifier, 15, 1, 3),
+            Token::new(TokenType::Greater, 17, 1, 3),
+            Token::new(TokenType::Number, 19, 1, 3),
+            Token::new(TokenType::Colon, 20, 1, 3),
+            Token::new(TokenType::NewLine, 21, 1, 3),
+            Token::new(TokenType::Indent, 22, 4, 4),
+            Token::new(TokenType::Print, 26, 5, 4),
+            Token::new(TokenType::String, 32, 18, 4),
+            Token::new(TokenType::NewLine, 50, 1, 4),
+            Token::new(TokenType::If, 55, 2, 5),
+            Token::new(TokenType::Identifier, 58, 1, 5),
+            Token::new(TokenType::EqualEqual, 60, 2, 5),
+            Token::new(TokenType::Number, 63, 2, 5),
+            Token::new(TokenType::Colon, 65, 1, 5),
+            Token::new(TokenType::NewLine, 66, 1, 5),
+            Token::new(TokenType::Indent, 67, 8, 6),
+            Token::new(TokenType::Print, 75, 5, 6),
+            Token::new(TokenType::String, 81, 9, 6),
+            Token::new(TokenType::NewLine, 90, 1, 6),
+            Token::new(TokenType::Dedent, 91, 0, 7),
+            Token::new(TokenType::Dedent, 91, 0, 7),
+            Token::new(TokenType::Eof, 91, 0, 7),
         ];
 
         for (i, expected_token) in expected_tokens.iter().enumerate() {
-            assert_eq!(expected_token.token_type, scanner.scan_token().token_type, "{}", i);  //temporary!
+            assert_eq!(*expected_token, scanner.scan_token(), "Token Index: {}", i);
         }
     }
 
