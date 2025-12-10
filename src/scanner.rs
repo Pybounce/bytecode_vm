@@ -88,7 +88,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn make_token(&mut self, token_type: TokenType) -> Token {
-        let token = Token::new(token_type, self.start as i32, (self.next - self.start) as i32, self.line as i32);
+        let token = Token::new(token_type, self.start, self.next - self.start, self.line);
         self.start = self.next;
         return token;
     }
