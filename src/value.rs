@@ -1,5 +1,5 @@
- #[derive(Clone, Copy)]
+ #[derive(Clone, Copy, PartialEq, Debug)]
  pub enum Value {
     Bool(bool),
-    Number(f32)
+    Number(f64)
  }

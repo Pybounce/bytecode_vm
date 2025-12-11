@@ -1,4 +1,4 @@
-use crate::{chunk::Chunk, opcode::OpCode, scanner::Scanner, token::{Token, TokenType}};
+use crate::{chunk::Chunk, opcode::OpCode, parse::{ParseFn, ParsePrecedence, ParseRule}, scanner::Scanner, token::{Token, TokenType}, value::Value};
 
 
 pub struct Compiler<'a> {
@@ -24,7 +24,7 @@ impl<'a> Compiler<'a> {
         }
     }
     pub fn compile(mut self) -> Chunk {
-        
+        self.advance();
         while self.match_token(TokenType::Eof) == false {
             self.declaration();
         }
@@ -54,7 +54,7 @@ impl<'a> Compiler<'a> {
     fn print_statement(&mut self) {
         self.expression();
         self.consume(TokenType::NewLine, "Expect newline after expression."); //TODO: This probably breaks if instead you have EoF
-        self.emit_byte(OpCode::Print);
+        self.emit_op(OpCode::Print);
     }
 
     fn expression_statement(&mut self) {
@@ -62,13 +62,127 @@ impl<'a> Compiler<'a> {
     }
 
     fn expression(&mut self) {
+        self.parse_precedence(ParsePrecedence::Assignment);
+    }
+
+    fn number(&mut self, can_assign: bool) {
+        let lexeme = &self.source[self.previous_token.start..self.previous_token.length + self.previous_token.start];
+        if let Ok(number) = lexeme.parse::<f64>() {
+            self.emit_constant(Value::Number(number));
+        }
+        else {
+            self.error_at_previous("Failed to parse number.");
+        }
+    }
+
+    fn binary(&mut self, can_assign: bool) {
 
     }
+
+    fn parse_precedence(&mut self, precedence: ParsePrecedence) {
+        self.advance();
+        let prefix_fn = self.get_rule(self.previous_token.token_type).prefix;
+        if prefix_fn == ParseFn::None { 
+            self.error_at_current("Expected expression.");
+            return;
+        }
+
+        let can_assign = precedence <= ParsePrecedence::Assignment;
+        self.call_parse_fn(prefix_fn, can_assign);
+
+        while precedence <= self.get_rule(self.current_token.token_type).precedence {
+            self.advance();
+            let infix_fn = self.get_rule(self.previous_token.token_type).infix;
+            self.call_parse_fn(infix_fn, can_assign);
+        }
+
+        if can_assign && self.match_token(TokenType::Equal) { self.error_at_current("Invalid assignment target."); }
+    }
+
+    fn call_parse_fn(&mut self, parse_fn: ParseFn, can_assign: bool) {
+        match parse_fn {
+            ParseFn::None => (),
+            ParseFn::Number => self.number(can_assign),
+            ParseFn::Binary => self.binary(can_assign),
+            ParseFn::Grouping => todo!(),
+            ParseFn::Call => todo!(),
+            ParseFn::Unary => todo!(),
+            ParseFn::Variable => todo!(),
+            ParseFn::String => todo!(),
+            ParseFn::Literal => todo!(),
+            ParseFn::And => todo!(),
+            ParseFn::Or => todo!(),
+        };
+    }
+
+    fn get_rule(&self, token_type: TokenType) -> ParseRule {
+        match token_type {
+            TokenType::LeftParen =>     ParseRule::new(ParseFn::Grouping, ParseFn::Call, ParsePrecedence::Call),
+            TokenType::RightParen =>    ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Indent =>        ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Dedent =>        ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::NewLine =>       ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Comma =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Minus =>         ParseRule::new(ParseFn::Unary, ParseFn::Binary, ParsePrecedence::Term),
+            TokenType::Plus =>          ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Term),
+            TokenType::Colon =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Slash =>         ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Factor),
+            TokenType::Star =>          ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Factor),
+            TokenType::Bang =>          ParseRule::new(ParseFn::Unary, ParseFn::None, ParsePrecedence::None),
+            TokenType::BangEqual =>     ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Equality),
+            TokenType::Equal =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::EqualEqual =>    ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Equality),
+            TokenType::Greater =>       ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Comparison),
+            TokenType::GreaterEqual =>  ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Comparison),
+            TokenType::Less =>          ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Comparison),
+            TokenType::LessEqual =>     ParseRule::new(ParseFn::None, ParseFn::Binary, ParsePrecedence::Comparison),
+            TokenType::Identifier =>    ParseRule::new(ParseFn::Variable, ParseFn::None, ParsePrecedence::None),
+            TokenType::String =>        ParseRule::new(ParseFn::String, ParseFn::None, ParsePrecedence::None),
+            TokenType::Number =>        ParseRule::new(ParseFn::Number, ParseFn::None, ParsePrecedence::None),
+            TokenType::And =>           ParseRule::new(ParseFn::None, ParseFn::And, ParsePrecedence::And),
+            TokenType::Else =>          ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::False =>         ParseRule::new(ParseFn::Literal, ParseFn::None, ParsePrecedence::None),
+            TokenType::For =>           ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Fn =>            ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::If =>            ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Null =>          ParseRule::new(ParseFn::Literal, ParseFn::None, ParsePrecedence::None),
+            TokenType::Or =>            ParseRule::new(ParseFn::None, ParseFn::Or, ParsePrecedence::Or),
+            TokenType::Print =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Return =>        ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::True =>          ParseRule::new(ParseFn::Literal, ParseFn::None, ParsePrecedence::None),
+            TokenType::Var =>           ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::While =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Error =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+            TokenType::Eof =>           ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
+        }
+    }
+
 }
 
 impl<'a> Compiler<'a> {
-    fn emit_byte(&mut self, code: OpCode) {
-        self.chunk.write_op(code, self.previous_token.line);
+    fn emit_op(&mut self, code: OpCode) {
+        self.emit_byte(code as u8);
+    }
+    
+    fn emit_byte(&mut self, byte: u8) {
+        self.chunk.write_byte(byte, self.previous_token.line);
+    }
+
+    fn emit_constant(&mut self, value: Value) {
+        self.emit_op(OpCode::Constant);
+        let constant_index = self.make_constant(value);
+        self.emit_byte(constant_index);
+    }
+
+    fn make_constant(&mut self, value: Value) -> u8 {
+        let constant_index = self.chunk.write_constant(value);
+        if let Ok(index_u8) = u8::try_from(constant_index) {
+            return index_u8;
+        }
+        else {
+            self.error_at_current("Too many constants in one chunk. Max 256.");
+            return 0;
+        }
     }
 }
 
@@ -146,5 +260,90 @@ impl<'a> Compiler<'a> {
 
     fn error_at_previous(&mut self, message: &'static str) {
         self.error_at(self.previous_token, message);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{chunk::Chunk, compiler::Compiler, opcode::OpCode, value::Value};
+
+
+    #[test]
+    fn print_number() {
+        let source = r#"print 1"#;
+        let compiler = Compiler::new(&source);
+
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::Constant as u8,
+                0u8,
+                OpCode::Print as u8
+            ],
+            lines: vec![1, 1, 1],
+            constants: vec![Value::Number(1.0)],
+        };
+        
+        let output = compiler.compile();
+        assert_eq!(expected_chunk, output);
+    }
+
+    #[test]
+    fn single_line() {
+        let source = r#"print 1"#;
+        let compiler = Compiler::new(&source);
+
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::Constant as u8,
+                0u8,
+                OpCode::Print as u8
+            ],
+            lines: vec![1, 1, 1],
+            constants: vec![Value::Number(1.0)],
+        };
+        
+        let output = compiler.compile();
+        assert_eq!(expected_chunk, output);
+    }
+
+    #[test]
+    fn newline_start() {
+        let source = r#"    
+
+print 1"#;
+        let compiler = Compiler::new(&source);
+
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::Constant as u8,
+                0u8,
+                OpCode::Print as u8
+            ],
+            lines: vec![3, 3, 3],
+            constants: vec![Value::Number(1.0)],
+        };
+        
+        let output = compiler.compile();
+        assert_eq!(expected_chunk, output);
+    }
+
+    #[test]
+    fn newline_end() {
+        let source = r#"print 1
+"#;
+        let compiler = Compiler::new(&source);
+
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::Constant as u8,
+                0u8,
+                OpCode::Print as u8
+            ],
+            lines: vec![1, 1, 1],
+            constants: vec![Value::Number(1.0)],
+        };
+        
+        let output = compiler.compile();
+        assert_eq!(expected_chunk, output);
     }
 }

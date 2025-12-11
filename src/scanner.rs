@@ -27,7 +27,18 @@ impl<'a> Scanner<'a> {
         }
     }
     pub fn scan_token(&mut self) -> Token {
-        let token = self.next_token();
+        let mut token = self.next_token();
+
+        //// Edge cases
+        // Newlines are only returned if they matter, ie if they are at the end of a statement
+        if token.token_type == TokenType::NewLine && matches!(self.previous_token, None | Some(TokenType::NewLine)) {
+            return self.scan_token();
+        }
+        // All statements must be terminated, so if we have a trailing statement on the final line, insert the newline terminator
+        if token.token_type == TokenType::Eof && !matches!(self.previous_token, None | Some(TokenType::NewLine)) {
+            token = self.make_token(TokenType::NewLine);
+        }
+        
         self.previous_token = token.token_type.into();
         return token;
     }
