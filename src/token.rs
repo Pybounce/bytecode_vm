@@ -3,14 +3,14 @@
 pub struct Token {
     pub token_type: TokenType,
     /// Index of first lexeme character in source
-    pub start: i32,
+    pub start: usize,
     /// Length of lexeme
-    pub length: i32,
-    pub line: i32
+    pub length: usize,
+    pub line: usize
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, start: i32, length: i32, line: i32) -> Self {
+    pub fn new(token_type: TokenType, start: usize, length: usize, line: usize) -> Self {
         Self {
             token_type,
             start,
