@@ -1,6 +1,5 @@
-use std::env;
 
-use crate::{compiler::Compiler, scanner::Scanner};
+use crate::vm::VM;
 
 pub(crate) mod scanner;
 pub(crate) mod token;
@@ -9,17 +8,14 @@ pub(crate) mod chunk;
 pub(crate) mod compiler;
 pub(crate) mod value;
 pub(crate) mod parse;
+pub(crate) mod vm;
 
 fn main() {
-            let source = r#"print 1"#;
-
-
-        let compiler = Compiler::new(&source);
-        println!("compiling");
-        let output = compiler.compile();
-        println!("done compiling");
-    //let args: Vec<String> = env::args().collect();
-    //let source = "var x = 1 + 1";
-    //let mut scanner = Scanner::new(&source);
-    //scanner.scan_token();
+    let source = r#"
+print 1 + 1
+print 8*8
+print 7*(5+2)/4*(100+(4*2))
+7+7"#;
+    let mut vm = VM::init(source).unwrap();
+    vm.interpret();        
 }

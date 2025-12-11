@@ -12,7 +12,8 @@ pub enum OpCode {
     Subtract,
     Multiply,
     Divide,
-    Negate
+    Negate,
+    Return
 }
 
 impl From::<OpCode> for u8 {
@@ -30,6 +31,30 @@ impl From::<OpCode> for u8 {
             OpCode::Multiply => 9,
             OpCode::Divide => 10,
             OpCode::Negate => 11,
+            OpCode::Return => 12,
+        }
+    }
+}
+
+impl TryFrom::<u8> for OpCode {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(OpCode::Constant),
+            1 => Ok(OpCode::Print),
+            2 => Ok(OpCode::Pop),
+            3 => Ok(OpCode::Equal),
+            4 => Ok(OpCode::Not),
+            5 => Ok(OpCode::Greater),
+            6 => Ok(OpCode::Less),
+            7 => Ok(OpCode::Add),
+            8 => Ok(OpCode::Subtract),
+            9 => Ok(OpCode::Multiply),
+            10 => Ok(OpCode::Divide),
+            11 => Ok(OpCode::Negate),
+            12 => Ok(OpCode::Return),
+            _ => Err("Failed to convert u8 to ParsePrecedence")
         }
     }
 }

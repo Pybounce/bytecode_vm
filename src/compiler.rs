@@ -28,7 +28,14 @@ impl<'a> Compiler<'a> {
         while self.match_token(TokenType::Eof) == false {
             self.declaration();
         }
+
+        self.finish();
+
         return (!self.had_error).then(|| self.chunk);
+    }
+
+    fn finish(&mut self) {
+        self.emit_op(OpCode::Return);
     }
 }
 
@@ -319,9 +326,10 @@ mod test {
             bytes: vec![
                 OpCode::Constant.into(),
                 0,
-                OpCode::Print.into()
+                OpCode::Print.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![1, 1, 1],
+            lines: vec![1, 1, 1, 1],
             constants: vec![Value::Number(1.0)],
         };
         
@@ -348,8 +356,9 @@ mod test {
                 OpCode::Multiply.into(),
                 OpCode::Add.into(),
                 OpCode::Pop.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            lines: vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             constants: vec![
                 Value::Number(1.0), 
                 Value::Number(2.0), 
@@ -381,9 +390,10 @@ mod test {
                 OpCode::Constant.into(),
                 0,
                 OpCode::Negate.into(),
-                OpCode::Pop.into()
+                OpCode::Pop.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![1, 1, 1, 1],
+            lines: vec![1, 1, 1, 1, 1],
             constants: vec![Value::Number(10.4)],
         };
 
@@ -400,9 +410,10 @@ mod test {
             bytes: vec![
                 OpCode::Constant.into(),
                 0,
-                OpCode::Print.into()
+                OpCode::Print.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![1, 1, 1],
+            lines: vec![1, 1, 1, 1],
             constants: vec![Value::Number(1.0)],
         };
         
@@ -421,9 +432,10 @@ print 1"#;
             bytes: vec![
                 OpCode::Constant.into(),
                 0,
-                OpCode::Print.into()
+                OpCode::Print.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![3, 3, 3],
+            lines: vec![3, 3, 3, 3],
             constants: vec![Value::Number(1.0)],
         };
         
@@ -441,9 +453,10 @@ print 1"#;
             bytes: vec![
                 OpCode::Constant.into(),
                 0,
-                OpCode::Print.into()
+                OpCode::Print.into(),
+                OpCode::Return.into()
             ],
-            lines: vec![1, 1, 1],
+            lines: vec![1, 1, 1, 2],
             constants: vec![Value::Number(1.0)],
         };
         
