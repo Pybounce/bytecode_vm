@@ -8,23 +8,26 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn init(source: &str) -> Result<Self, ()> {
-        let compiler = Compiler::new(source);
-        if let Some(chunk) = compiler.compile() {
-            return Ok(
-                VM {
-                    pc: 0,
-                    stack: Vec::with_capacity(32),
-                    chunk,
-                }
-            );
+    pub fn new() -> Self {
+        Self {
+            pc: 0,
+            stack: Vec::with_capacity(32),
+            chunk: Chunk::new_terminated(),
         }
-
-        return Err(());
     }
 
-    pub fn interpret(&mut self) -> bool {
+    pub fn interpret(&mut self, source: &str) -> bool {
+        let compiler = Compiler::new(source);
+        if let Some(chunk) = compiler.compile() {
+            self.chunk = chunk;
+            self.pc = 0;
+            return self.run();
+        }
 
+        return false;
+    }
+
+    fn run(&mut self) -> bool {
         loop {
             let operation = OpCode::try_from(self.read_byte());
             if operation.is_err() { 

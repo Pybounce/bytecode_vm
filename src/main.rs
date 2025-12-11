@@ -16,6 +16,6 @@ print 1 + 1
 print 8*8
 print 7*(5+2)/4*(100+(4*2))
 7+7"#;
-    let mut vm = VM::init(source).unwrap();
-    vm.interpret();        
+    let mut vm = VM::new();
+    vm.interpret(source);        
 }
