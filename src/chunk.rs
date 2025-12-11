@@ -15,6 +15,12 @@ impl Chunk {
             constants: vec![]
         }
     }
+    /// Initialises a chunk with only a return operation to terminate vm interpret
+    pub fn new_terminated() -> Self {
+        let mut chunk = Chunk::new();
+        chunk.write_op(OpCode::Return, 1);
+        return chunk;
+    }
     pub fn write_op(&mut self, op: OpCode, line: usize) {
         self.write_byte(op as u8, line);
     }

@@ -1,6 +1,7 @@
-use std::env;
 
-use crate::{compiler::Compiler, scanner::Scanner};
+use std::io::{self, BufRead, Write};
+
+use crate::vm::VM;
 
 pub(crate) mod scanner;
 pub(crate) mod token;
@@ -9,17 +10,30 @@ pub(crate) mod chunk;
 pub(crate) mod compiler;
 pub(crate) mod value;
 pub(crate) mod parse;
+pub(crate) mod vm;
 
 fn main() {
-            let source = r#"print 1"#;
+    println!("\n\n- - - - - - REPL MODE - - - - - -\n");
+    
+    let mut vm = VM::new();
 
+    let mut source = String::new();
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
 
-        let compiler = Compiler::new(&source);
-        println!("compiling");
-        let output = compiler.compile();
-        println!("done compiling");
-    //let args: Vec<String> = env::args().collect();
-    //let source = "var x = 1 + 1";
-    //let mut scanner = Scanner::new(&source);
-    //scanner.scan_token();
+        match io::stdin().read_line(&mut source) {
+            Ok(_) => {
+                if !vm.interpret(&source) { 
+                    println!("Failed to interpret input.");
+                }
+            }
+            Err(e) => {
+                println!("Error occured reading input. {:?}", e);
+                return;
+            }
+        }
+        source.clear();
+    }
+ 
 }
