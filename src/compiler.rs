@@ -53,12 +53,14 @@ impl<'a> Compiler<'a> {
 
     fn print_statement(&mut self) {
         self.expression();
-        self.consume(TokenType::NewLine, "Expect newline after expression."); //TODO: This probably breaks if instead you have EoF
+        self.consume(TokenType::NewLine, "Expect newline after expression.");
         self.emit_op(OpCode::Print);
     }
 
     fn expression_statement(&mut self) {
-
+        self.expression();
+        self.consume(TokenType::NewLine, "Expect newline after expression.");
+        self.emit_op(OpCode::Pop);
     }
 
     fn expression(&mut self) {
@@ -76,7 +78,32 @@ impl<'a> Compiler<'a> {
     }
 
     fn binary(&mut self, can_assign: bool) {
+        let operator = self.previous_token.token_type;
+        let operator_rule_prec = self.get_rule(operator).precedence;
+        match ParsePrecedence::try_from(u8::from(operator_rule_prec) + 1) {
+            Ok(new_precedence) => self.parse_precedence(new_precedence),
+            Err(msg) => self.error_at_current(msg),
+        }
+        
+        match operator {
+            TokenType::BangEqual =>     self.emit_ops(OpCode::Equal, OpCode::Not),
+            TokenType::EqualEqual =>    self.emit_op(OpCode::Equal),
+            TokenType::Greater =>       self.emit_op(OpCode::Greater),
+            TokenType::GreaterEqual =>  self.emit_ops(OpCode::Less, OpCode::Not),
+            TokenType::Less =>          self.emit_op(OpCode::Less),
+            TokenType::LessEqual =>     self.emit_ops(OpCode::Greater, OpCode::Not),
+            TokenType::Plus =>          self.emit_op(OpCode::Add),
+            TokenType::Minus =>         self.emit_op(OpCode::Subtract),
+            TokenType::Star =>          self.emit_op(OpCode::Multiply),
+            TokenType::Slash =>         self.emit_op(OpCode::Divide),
+            _ => self.error_at_current("binary operator mismatch."),
+        };
+        
+    }
 
+    fn grouping(&mut self, can_assign: bool) {
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
     fn parse_precedence(&mut self, precedence: ParsePrecedence) {
@@ -104,7 +131,7 @@ impl<'a> Compiler<'a> {
             ParseFn::None => (),
             ParseFn::Number => self.number(can_assign),
             ParseFn::Binary => self.binary(can_assign),
-            ParseFn::Grouping => todo!(),
+            ParseFn::Grouping => self.grouping(can_assign),
             ParseFn::Call => todo!(),
             ParseFn::Unary => todo!(),
             ParseFn::Variable => todo!(),
@@ -162,6 +189,11 @@ impl<'a> Compiler<'a> {
 impl<'a> Compiler<'a> {
     fn emit_op(&mut self, code: OpCode) {
         self.emit_byte(code as u8);
+    }
+
+    fn emit_ops(&mut self, op1: OpCode, op2: OpCode) {
+        self.emit_op(op1);
+        self.emit_op(op2);
     }
     
     fn emit_byte(&mut self, byte: u8) {
@@ -267,7 +299,6 @@ impl<'a> Compiler<'a> {
 mod test {
     use crate::{chunk::Chunk, compiler::Compiler, opcode::OpCode, value::Value};
 
-
     #[test]
     fn print_number() {
         let source = r#"print 1"#;
@@ -281,6 +312,39 @@ mod test {
             ],
             lines: vec![1, 1, 1],
             constants: vec![Value::Number(1.0)],
+        };
+        
+        let output = compiler.compile();
+        assert_eq!(expected_chunk, output);
+    }
+
+    #[test]
+    fn arithmetic() {
+        let source = r#"1 + 2 * (5 - 3)"#;
+        let compiler = Compiler::new(&source);
+
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::Constant as u8,
+                0u8,
+                OpCode::Constant as u8,
+                1u8,
+                OpCode::Constant as u8,
+                2u8,
+                OpCode::Constant as u8,
+                3u8,
+                OpCode::Subtract as u8,
+                OpCode::Multiply as u8,
+                OpCode::Add as u8,
+                OpCode::Pop as u8,
+            ],
+            lines: vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            constants: vec![
+                Value::Number(1.0), 
+                Value::Number(2.0), 
+                Value::Number(5.0), 
+                Value::Number(3.0)
+            ]
         };
         
         let output = compiler.compile();
