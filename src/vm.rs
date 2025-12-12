@@ -11,7 +11,7 @@ impl VM {
     pub fn new() -> Self {
         Self {
             pc: 0,
-            stack: Vec::with_capacity(32),
+            stack: Vec::new(),
             chunk: Chunk::new_terminated(),
         }
     }
