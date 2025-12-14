@@ -51,3 +51,28 @@
 - All REPL does is compile your new line and run it.
 - All static typing does it keep some type-checking context
 - So if I can separate that context, I can just pass it to the new compiler each time.
+
+**Actual globals plan**
+
+- In compiler, have a hashmap for
+  (identifier => (u8: index, bool: initialised, tokens: List<Token>))
+- The compiler also needs a u8 for globals count
+- When coming across a global declaration:
+  - Hashmap contains index:
+    - Replace with said index
+    - If hashmap entry initialised == false, set to true
+  - Hashmap does NOT contain index
+    - Add an entry, setting the index to the current globals count
+    - Since this is a declaration, set initialised to TRUE
+    - Increment globals count
+- When coming across identifier access (that we assume is global):
+  - Hashmap contains index:
+    - Replace with said index
+    - Add token to token list
+  - Hashmap does NOT contain index:
+    - Add an entry, setting the index to the current globals count
+    - Since this is not a declaration, set initialised to FALSE
+    - Add token to token list
+- Once we reach the end of the compiler:
+  - Run through hashmap entries for any where initialise == false
+  - For each, raise error at the listed token "unidefined indentifier"
