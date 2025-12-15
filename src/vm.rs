@@ -47,7 +47,11 @@ impl VM {
                 },
                 OpCode::Pop => { self.stack.pop(); },
                 OpCode::Equal => todo!(),
-                OpCode::Not => todo!(),
+                OpCode::Not => {
+                    let val = self.stack.pop().unwrap();
+                    let not_val = self.is_falsey(val);
+                    self.stack.push(Value::Bool(not_val));
+                },
                 OpCode::Greater => { if !self.binary_number_op(|a, b| Value::Bool(a > b)) { return false; } },
                 OpCode::Less => { if !self.binary_number_op(|a, b| Value::Bool(a < b)) { return false; } },
                 OpCode::Add => { if !self.binary_number_op(|a, b| Value::Number(a + b)) { return false; } },
