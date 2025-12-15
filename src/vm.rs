@@ -105,6 +105,8 @@ impl VM {
                     let jump = self.read_short() as usize;
                     self.pc -= jump;
                 },
+                OpCode::True => self.stack.push(Value::Bool(true)),
+                OpCode::False => self.stack.push(Value::Bool(false)),
             }
         }
     }

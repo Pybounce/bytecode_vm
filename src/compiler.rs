@@ -265,6 +265,15 @@ impl<'a> Compiler<'a> {
         self.patch_jump(end_jump);
     }
 
+    fn literal(&mut self, can_assign: bool) {
+        match self.previous_token.token_type {
+            TokenType::True => self.emit_byte(OpCode::True),
+            TokenType::False => self.emit_byte(OpCode::False),
+            TokenType::Null => self.emit_byte(OpCode::Null),
+            _ => return
+        }
+    }
+
     fn grouping(&mut self, can_assign: bool) {
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
@@ -311,7 +320,7 @@ impl<'a> Compiler<'a> {
             ParseFn::Unary => self.unary(can_assign),
             ParseFn::Variable => self.variable(can_assign),
             ParseFn::String => todo!(),
-            ParseFn::Literal => todo!(),
+            ParseFn::Literal => self.literal(can_assign),
             ParseFn::And => self.and(can_assign),
             ParseFn::Or => self.or(can_assign),
         };

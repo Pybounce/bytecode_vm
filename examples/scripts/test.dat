@@ -1,9 +1,10 @@
+var b = true
 var a = 0
-
-while a <= 10:
-    if a == 0 or a == 2 or a == 4 or a == 6 or a == 8 or a == 10:
-        print a
-    a = a + 1
+if b:
+    while a <= 10:
+        if a == 0 or a == 2 or a == 4 or a == 6 or a == 8 or a == 10:
+            print a
+        a = a + 1
 
 
 

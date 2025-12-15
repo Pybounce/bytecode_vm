@@ -25,6 +25,8 @@
   - <= >= != etc
 - [ ] If/Else statements
 - [ ] While loops
+- [ ] Literals (true/false/null)
+- [ ] and/or
 
 **Static Typing**
 
