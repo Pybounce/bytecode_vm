@@ -46,7 +46,11 @@ impl VM {
                     println!("{}", self.stack.pop().unwrap())
                 },
                 OpCode::Pop => { self.stack.pop(); },
-                OpCode::Equal => todo!(),
+                OpCode::Equal => {
+                    let b = self.stack.pop().unwrap();
+                    let a = self.stack.pop().unwrap();
+                    self.stack.push(Value::Bool(a == b));
+                },
                 OpCode::Not => {
                     let val = self.stack.pop().unwrap();
                     let not_val = self.is_falsey(val);

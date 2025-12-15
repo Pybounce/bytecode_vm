@@ -248,6 +248,23 @@ impl<'a> Compiler<'a> {
         
     }
 
+    fn and(&mut self, can_assign: bool) {
+        let jump = self.emit_jump(OpCode::JumpIfFalse);
+        self.emit_byte(OpCode::Pop);
+        self.parse_precedence(ParsePrecedence::And);
+        self.patch_jump(jump);
+    }
+
+    fn or(&mut self, can_assign: bool) {
+        let hop = self.emit_jump(OpCode::JumpIfFalse);
+        let end_jump = self.emit_jump(OpCode::Jump);
+        self.patch_jump(hop);
+
+        self.emit_byte(OpCode::Pop);
+        self.parse_precedence(ParsePrecedence::Or);
+        self.patch_jump(end_jump);
+    }
+
     fn grouping(&mut self, can_assign: bool) {
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
@@ -295,8 +312,8 @@ impl<'a> Compiler<'a> {
             ParseFn::Variable => self.variable(can_assign),
             ParseFn::String => todo!(),
             ParseFn::Literal => todo!(),
-            ParseFn::And => todo!(),
-            ParseFn::Or => todo!(),
+            ParseFn::And => self.and(can_assign),
+            ParseFn::Or => self.or(can_assign),
         };
     }
 
