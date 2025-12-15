@@ -6,18 +6,14 @@
 
 ## Next Up!
 
-- [ ] Literal compiler support (null/true/false)
 - [ ] String support
   - Which means working out objects...end me pls.
-- [ ] Control flow
 - [ ] Locals
 
 ## Improvements
 
 - [ ] Define global and set global are the same, remove define.
 - [ ] Use impl Into<u8> for writing bytes etc
-- [ ] Jump unit tests
-  - Tests to ensure it jumps by the correct amount etc.
 
 ## Tests
 
@@ -27,6 +23,7 @@
 - [ ] While loops
 - [ ] Literals (true/false/null)
 - [ ] and/or
+- [ ] Jump
 
 **Static Typing**
 
