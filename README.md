@@ -19,6 +19,13 @@
 - [ ] Jump unit tests
   - Tests to ensure it jumps by the correct amount etc.
 
+## Tests
+
+- [ ] NOT operator
+  - <= >= != etc
+- [ ] If/Else statements
+- [ ] While loops
+
 **Static Typing**
 
 - This matters now since it either may change how the compiler is structured completely OR it'll change how globals work. 2 Pass will be easier to type check over patching.
