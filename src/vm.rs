@@ -1,4 +1,4 @@
-use crate::{chunk::Chunk, compiler::Compiler, opcode::OpCode, value::Value};
+use crate::{chunk::Chunk, compiler::{Compiler, CompilerOutput}, opcode::OpCode, value::Value};
 
 
 pub struct VM {
@@ -6,6 +6,10 @@ pub struct VM {
     pub stack: Vec<Value>,
     pub chunk: Chunk,
     pub globals: Vec<Option<Value>>
+}
+
+pub struct RuntimeError {
+    pub message: &'static str
 }
 
 impl VM {
@@ -18,24 +22,19 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, source: &str) -> bool {
-        let compiler = Compiler::new(source);
-        if let Some(compiler_output) = compiler.compile() {
-            self.chunk = compiler_output.chunk;
-            self.pc = 0;
-            self.globals = vec![None; compiler_output.globals_count];
-            return self.run();
-        }
-
-        return false;
+    pub fn interpret(&mut self, compiler_output: CompilerOutput) -> Result<(), RuntimeError> {
+        self.chunk = compiler_output.chunk;
+        self.pc = 0;
+        self.globals = vec![None; compiler_output.globals_count];
+        return self.run();
     }
 
-    fn run(&mut self) -> bool {
+    fn run(&mut self) -> Result<(), RuntimeError> {
         loop {
             let operation = OpCode::try_from(self.read_byte());
             if operation.is_err() { 
-                self.runtime_error("Failed to convert byte to opcode");
-                return false;
+                let err = self.runtime_error("Failed to convert byte to opcode");
+                return Err(err);
             }
             match operation.unwrap() {
                 OpCode::Constant => {
@@ -56,22 +55,22 @@ impl VM {
                     let not_val = self.is_falsey(val);
                     self.stack.push(Value::Bool(not_val));
                 },
-                OpCode::Greater => { if !self.binary_number_op(|a, b| Value::Bool(a > b)) { return false; } },
-                OpCode::Less => { if !self.binary_number_op(|a, b| Value::Bool(a < b)) { return false; } },
-                OpCode::Add => { if !self.binary_number_op(|a, b| Value::Number(a + b)) { return false; } },
-                OpCode::Subtract => { if !self.binary_number_op(|a, b| Value::Number(a - b)) { return false; } },
-                OpCode::Multiply => { if !self.binary_number_op(|a, b| Value::Number(a * b)) { return false; } },
-                OpCode::Divide => { if !self.binary_number_op(|a, b| Value::Number(a / b)) { return false; } },
+                OpCode::Greater => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a > b)) { return Err(e); } },
+                OpCode::Less => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a < b)) { return Err(e); } },
+                OpCode::Add => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a + b)) { return Err(e); } },
+                OpCode::Subtract => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a - b)) { return Err(e); } },
+                OpCode::Multiply => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a * b)) { return Err(e); } },
+                OpCode::Divide => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a / b)) { return Err(e); } },
                 OpCode::Negate => {
                     let val = self.stack.pop().unwrap();
                     if let Value::Number(n) = val {
                         self.stack.push(Value::Number(-n));
                     } else { 
-                        self.runtime_error("Negate operand must be number."); 
-                        return false;
+                        let err = self.runtime_error("Negate operand must be number."); 
+                        return Err(err);
                     }
                 },
-                OpCode::Return => return true,
+                OpCode::Return => return Ok(()),
                 OpCode::Null => self.stack.push(Value::Null),
                 OpCode::DefineGlobal => {
                     self.write_global();
@@ -85,8 +84,8 @@ impl VM {
                     match self.read_global() {
                         Some(global_val) => { self.stack.push(global_val); },
                         None => {
-                            self.runtime_error("Undefined variable.");
-                            return false;
+                            let err = self.runtime_error("Undefined variable.");
+                            return Err(err);
                         },
                     }
     
@@ -140,24 +139,27 @@ impl VM {
         let index = self.read_byte() as usize;
         self.globals[index] = Some(val);
     }
-    fn runtime_error(&mut self, message: &'static str) {
+    fn runtime_error(&mut self, message: &'static str) -> RuntimeError {
         println!("Runtime error: {}", message);
         self.reset_stack();
+        return RuntimeError {
+            message
+        };
     }
     fn reset_stack(&mut self) {
         self.stack.clear();
     }
-    fn binary_number_op<T>(&mut self, apply: T) -> bool where T: Fn(f64, f64) -> Value {
+    fn binary_number_op<T>(&mut self, apply: T) -> Result<(), RuntimeError> where T: Fn(f64, f64) -> Value {
         let b = self.stack.pop().unwrap();
         let a = self.stack.pop().unwrap();
         match (a, b) {
             (Value::Number(num_a), Value::Number(num_b)) => {
                 self.stack.push(apply(num_a, num_b));
-                return true;
+                return Ok(());
             },
             _ => { 
-                self.runtime_error("Add operands must be numbers");
-                return false;
+                let err = self.runtime_error("Add operands must be numbers");
+                return Err(err);
              }
         }
     } 

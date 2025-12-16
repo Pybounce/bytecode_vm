@@ -11,7 +11,15 @@ pub struct Compiler<'a> {
     current_token: Token,
     had_error: bool,
     panic_mode: bool,
+    errors: Vec<CompilerError>,
     globals_state: HashMap<&'a str, (u8, bool, Vec<Token>)>
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CompilerError {
+    pub line: usize,
+    pub start: usize,
+    pub len: usize
 }
 
 #[derive(PartialEq, Debug)]
@@ -30,18 +38,21 @@ impl<'a> Compiler<'a> {
             current_token: Token::new(TokenType::Error, 0, 0, 0),
             had_error: false,
             panic_mode: false,
+            errors: vec![],
             globals_state: HashMap::new()
         }
     }
-    pub fn compile(mut self) -> Option<CompilerOutput> {
+    pub fn compile(mut self) -> Result<CompilerOutput, Vec<CompilerError>> {
         self.advance();
         while self.match_token(TokenType::Eof) == false {
             self.declaration();
         }
 
         self.finish();
-
-        return (!self.had_error).then(|| CompilerOutput { chunk: self.chunk, globals_count: self.globals_state.len() });
+        if self.had_error {
+            return Err(self.errors)
+        }
+        return Ok(CompilerOutput { chunk: self.chunk, globals_count: self.globals_state.len() });
     }
 
     fn finish(&mut self) {
@@ -494,6 +505,11 @@ impl<'a> Compiler<'a> {
         }
 
         eprint!(": {}\n", message);
+        self.errors.push(CompilerError {
+            line: token.line,
+            start: token.start,
+            len: token.length,
+        });
         self.had_error = true;
     }
 
@@ -504,7 +520,7 @@ impl<'a> Compiler<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{chunk::Chunk, compiler::Compiler, opcode::OpCode, value::Value};
+    use crate::{chunk::Chunk, compiler::{Compiler, CompilerError}, opcode::OpCode, value::Value};
 
     #[test]
     fn print_number() {
@@ -564,9 +580,12 @@ mod test {
     fn error_trailing_arithmetic_op() {
         let source = r#"1 +"#;
         let compiler = Compiler::new(&source);
-        
+        let expected_result = Err(vec![
+            CompilerError { line: 1, start: 3, len: 0 }
+        ]);
+
         let output = compiler.compile();
-        assert_eq!(None, output);
+        assert_eq!(expected_result, output);
     }
 
     #[test]
@@ -723,9 +742,12 @@ g = 4"#;
 var g = 1
 var g = 2"#;
         let compiler = Compiler::new(&source);
-        
+        let expected_result = Err(vec![
+            CompilerError { line: 3, start: 15, len: 1 }
+        ]);
+
         let output = compiler.compile();
-        assert_eq!(output, None);
+        assert_eq!(expected_result, output);
     }
 
     #[test]

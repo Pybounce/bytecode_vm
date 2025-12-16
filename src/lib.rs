@@ -5,4 +5,5 @@ pub(crate) mod chunk;
 pub(crate) mod compiler;
 pub(crate) mod value;
 pub(crate) mod parse;
-pub mod vm;
+pub(crate) mod vm;
+pub mod interpreter;
