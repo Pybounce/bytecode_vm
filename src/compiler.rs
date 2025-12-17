@@ -160,7 +160,7 @@ impl<'a> Compiler<'a> {
 
     fn variable(&mut self, can_assign: bool) {
         let identifier_token = self.previous_token;
-        let (get_op, set_op, index): (OpCode, OpCode, u8) = match self.local_index() {
+        let (get_op, set_op, index): (OpCode, OpCode, u8) = match self.local_index(identifier_token) {
             Some(local_index) => (OpCode::GetLocal, OpCode::SetLocal, local_index),
             None => (OpCode::GetGlobal, OpCode::SetGlobal, self.global_identifier(identifier_token, false)),
         };
@@ -178,7 +178,16 @@ impl<'a> Compiler<'a> {
 
     // Tries to find local, returns index if it can. </br>
     // Returns none otherwise.
-    fn local_index(&self) -> Option<u8> {
+    fn local_index(&mut self, identifier_token: Token) -> Option<u8> {
+        for i in (0..self.locals.len()).rev() {
+            let local = self.locals[i];
+            if self.identifiers_equal(local.token, identifier_token) {
+                if local.depth == -1 { 
+                    self.error_at_current("Can't read local variable in it's own initialiser.");
+                }
+                return Some(i as u8);
+            }
+        }
         return None;
     }
 
