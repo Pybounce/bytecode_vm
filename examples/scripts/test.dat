@@ -1,12 +1,18 @@
 var i = 3
 var i2 = 4
-var a = 100
+var a = "hello world!"
 
 if true:
+    print a
     var b = a
-    var d = 50
-    var c = b
-    c = c + 5
+    print b
+    b = 3
+    print a
+    print b
+    var c = "hello world!"
+    if c == "hello world":
+        print "c is hello world"
+    print c == a
 
 
 
