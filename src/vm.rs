@@ -72,6 +72,7 @@ impl VM {
                 OpCode::Null => self.stack.push(Value::Null),
                 OpCode::DefineGlobal => {
                     self.write_global();
+                    self.stack.pop();
                 },
                 OpCode::SetLocal => {
                     let local_stack_index = self.read_byte();
