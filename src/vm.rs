@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{chunk::Chunk, compiler::{Compiler, CompilerOutput}, interpreter::RuntimeError, opcode::OpCode, value::Value};
 
 
@@ -55,7 +57,12 @@ impl VM {
                 },
                 OpCode::Greater => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a > b)) { return Err(e); } },
                 OpCode::Less => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a < b)) { return Err(e); } },
-                OpCode::Add => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a + b)) { return Err(e); } },
+                OpCode::Add => {
+                    if matches!(&self.stack[self.stack.len() - 1], Value::String(_)) && matches!(&self.stack[self.stack.len() - 2], Value::String(_)) {
+                        if let Err(e) = self.concatenate() { return Err(e); }
+                    }
+                    else if let Err(e) = self.binary_number_op(|a, b| Value::Number(a + b)) { return Err(e); }
+                 },
                 OpCode::Subtract => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a - b)) { return Err(e); } },
                 OpCode::Multiply => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a * b)) { return Err(e); } },
                 OpCode::Divide => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a / b)) { return Err(e); } },
@@ -165,11 +172,27 @@ impl VM {
                 return Ok(());
             },
             _ => { 
-                let err = self.runtime_error("Add operands must be numbers");
+                let err = self.runtime_error("Add operands must both be strings or numbers");
                 return Err(err);
              }
         }
     } 
+
+    fn concatenate(&mut self) -> Result<(), RuntimeError> {
+        let b = self.stack.pop().unwrap();
+        let a = self.stack.pop().unwrap();
+        match (a, b) {
+            (Value::String(str_a), Value::String(str_b)) => {
+                self.stack.push(Value::String(Rc::new(str_a.as_str().to_owned() + str_b.as_str())));
+                return Ok(());
+            },
+            _ => { 
+                let err = self.runtime_error("Add operands must both be strings or numbers");
+                return Err(err);
+             }
+        }    
+    }
+
     fn is_falsey(&self, val: &Value) -> bool {
         return *val == Value::Null || *val == Value::Bool(false);
     }

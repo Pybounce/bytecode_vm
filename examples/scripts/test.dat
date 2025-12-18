@@ -1,18 +1,12 @@
 var i = 3
 var i2 = 4
-var a = "hello world!"
-
+var a = "hello"
+var b = "world"
 if true:
-    print a
-    var b = a
-    print b
-    b = 3
+    var c = a + " " + b + "!"
+    print c
     print a
     print b
-    var c = "hello world!"
-    if c == "hello world":
-        print "c is hello world"
-    print c == a
 
 
 
