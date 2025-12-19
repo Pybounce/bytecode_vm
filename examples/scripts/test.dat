@@ -1,12 +1,9 @@
 var i = 3
-var i2 = 4
-var a = "hello"
-var b = "world"
-if true:
-    var c = a + " " + b + "!"
-    print c
-    print a
-    print b
+
+fn something():
+    print i
+
+print something
 
 
 

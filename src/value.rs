@@ -1,11 +1,21 @@
 use std::{fmt::Display, rc::Rc};
 
+use crate::chunk::Chunk;
+
  #[derive(Clone, PartialEq, Debug)]
  pub enum Value {
     Bool(bool),
     Number(f64),
     Null,
-    String(Rc<String>)
+    String(Rc<String>),
+    Func(Rc<Function>)
+ }
+ 
+ #[derive(Clone, PartialEq, Debug)]
+ pub struct Function {
+    pub name: String,
+    pub arity: u8,
+    pub chunk: Chunk
  }
 
  impl Display for Value {
@@ -15,6 +25,7 @@ use std::{fmt::Display, rc::Rc};
             Value::Number(v) => write!(f, "{}", v),
             Value::Null => write!(f, "NULL"),
             Value::String(v) => write!(f, "{}", v),
+            Value::Func(function) => write!(f, "{}", function.name),
         }
     }
  }

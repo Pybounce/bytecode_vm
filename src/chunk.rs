@@ -1,6 +1,6 @@
 use crate::{opcode::OpCode, value::Value};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Chunk {
     pub bytes: Vec<u8>,
     pub lines: Vec<usize>,

@@ -1,20 +1,38 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{chunk::Chunk, interpreter::CompilerError, opcode::OpCode, parse::{ParseFn, ParsePrecedence, ParseRule}, scanner::Scanner, token::{Token, TokenType}, value::Value};
+use crate::{chunk::Chunk, interpreter::CompilerError, opcode::OpCode, parse::{ParseFn, ParsePrecedence, ParseRule}, scanner::Scanner, token::{Token, TokenType}, value::{Function, Value}};
 
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     source: &'a str,
-    chunk: Chunk,
     previous_token: Token,
     current_token: Token,
     had_error: bool,
     panic_mode: bool,
     errors: Vec<CompilerError>,
     globals_state: HashMap<&'a str, (u8, bool, Vec<Token>)>,
+    funpiler_stack: Vec<Funpiler>
+}
+
+struct Funpiler {
     locals: Vec<Local>,
-    scope_depth: usize
+    scope_depth: usize,
+    chunk: Chunk,
+    arity: u8,
+    name: String
+}
+
+impl Funpiler {
+    pub fn new() -> Self {
+        return Self {
+            locals: vec![],
+            scope_depth: 0,
+            chunk: Chunk::new(),
+            arity: 0,
+            name: "".to_owned()
+        };
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -34,15 +52,13 @@ impl<'a> Compiler<'a> {
         Self {
             scanner: Scanner::new(source),
             source: source,
-            chunk: Chunk::new(),
             previous_token: Token::new(TokenType::Error, 0, 0, 0),  // I know.
             current_token: Token::new(TokenType::Error, 0, 0, 0),
             had_error: false,
             panic_mode: false,
             errors: vec![],
             globals_state: HashMap::new(),
-            locals: vec![],
-            scope_depth: 0
+            funpiler_stack: vec![Funpiler::new()]
         }
     }
     pub fn compile(mut self) -> Result<CompilerOutput, Vec<CompilerError>> {
@@ -55,7 +71,7 @@ impl<'a> Compiler<'a> {
         if self.had_error {
             return Err(self.errors)
         }
-        return Ok(CompilerOutput { chunk: self.chunk, globals_count: self.globals_state.len() });
+        return Ok(CompilerOutput { chunk: self.funpiler().chunk.clone(), globals_count: self.globals_state.len() });
     }
 
     fn finish(&mut self) {
@@ -68,16 +84,85 @@ impl<'a> Compiler<'a> {
 // Statements/Declarations/Expressions
 impl<'a> Compiler<'a> {
     fn declaration(&mut self) {
-        if self.match_token(TokenType::Fn) { todo!(); }
+        if self.match_token(TokenType::Fn) { self.fn_declaration(); }
         else if self.match_token(TokenType::Var) { self.var_declaration(); }
         else { self.statement(); }
 
         if self.panic_mode { self.synchronise(); }
     }
 
+    fn fn_declaration(&mut self) {
+        self.consume(TokenType::Identifier, "Expect function name.");
+        if self.funpiler().scope_depth > 0 { 
+            self.error_at_previous("Cannot declare function inside another function.");
+        }
+        let global_index = self.global_identifier(self.previous_token, true);
+
+        let function = self.function();
+
+        self.emit_constant(Value::Func(Rc::new(function)));
+
+        self.emit_op(OpCode::DefineGlobal);
+        self.emit_byte(global_index);
+    }
+
+    fn function(&mut self) -> Function {
+        self.funpiler_stack.push(Funpiler::new());
+        self.begin_scope();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after function name.");
+        if !self.check_token(TokenType::RightParen) {
+            loop {
+                if self.funpiler().arity < u8::MAX {
+                    self.funpiler().arity += 1;
+                    
+                    self.consume(TokenType::Identifier, "Expect parameter name.");
+                    let new_local = self.previous_token;
+
+                    for i in (0..self.funpiler().locals.len()).rev() {
+                        let local = self.funpiler().locals[i];
+                        if local.depth != -1 && local.depth < self.funpiler().scope_depth as i32 { break; }
+                    
+                        if self.identifiers_equal(local.token, new_local) {
+                            self.error_at_current("Already a variable with this name in scope.");
+                            break;
+                        }
+                    }
+                
+                    if self.funpiler().locals.len() == u8::MAX as usize{
+                        self.error_at_current("Local variable count has been exceeded.");
+                    }
+                    let depth = self.funpiler().scope_depth;
+                    self.funpiler().locals.push(Local { token: new_local, depth: depth as i32});
+
+                    if !self.match_token(TokenType::Comma) { break; }
+                }
+                else {
+                    self.error_at_current("Cannot have more than 255 parameters.");
+                }
+                
+            }
+        }
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.");
+        self.consume(TokenType::Colon, "Expect ':' after function definition.");
+        self.consume(TokenType::NewLine, "Expect newline after ':' in function definition.");
+        self.consume(TokenType::Indent, "Expect indentation.");
+        self.block();
+        self.emit_byte(OpCode::Null);
+        self.emit_byte(OpCode::Return);
+        let funpiler = self.funpiler_stack.pop().unwrap();
+        let function = Function {
+            name: funpiler.name,
+            arity: funpiler.arity,
+            chunk: funpiler.chunk,
+        };
+        return function;
+        
+    }
+
     fn var_declaration(&mut self) {
         self.consume(TokenType::Identifier, "Expect variable name.");
-        if self.scope_depth == 0 {
+        if self.funpiler().scope_depth == 0 {
             self.var_global();
         }
         else {
@@ -88,9 +173,9 @@ impl<'a> Compiler<'a> {
     fn var_local(&mut self) {
         let new_local = self.previous_token;
 
-        for i in (0..self.locals.len()).rev() {
-            let local = self.locals[i];
-            if local.depth != -1 && local.depth < self.scope_depth as i32 { break; }
+        for i in (0..self.funpiler().locals.len()).rev() {
+            let local = self.funpiler().locals[i];
+            if local.depth != -1 && local.depth < self.funpiler().scope_depth as i32 { break; }
 
             if self.identifiers_equal(local.token, new_local) {
                 self.error_at_current("Already a variable with this name in scope.");
@@ -98,10 +183,10 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        if self.locals.len() == u8::MAX as usize{
+        if self.funpiler().locals.len() == u8::MAX as usize{
             self.error_at_current("Local variable count has been exceeded.");
         }
-        self.locals.push(Local { token: new_local, depth: -1 });
+        self.funpiler().locals.push(Local { token: new_local, depth: -1 });
 
         if self.match_token(TokenType::Equal) {
             self.expression();
@@ -110,8 +195,9 @@ impl<'a> Compiler<'a> {
         }
         self.consume(TokenType::NewLine, "Expect newline after expression.");
 
-        if let Some(local) = self.locals.last_mut() {
-            local.depth = self.scope_depth as i32;
+        let funpiler = self.funpiler();
+        if let Some(local) = funpiler.locals.last_mut() {
+            local.depth = funpiler.scope_depth as i32;
         }
     }
 
@@ -179,8 +265,8 @@ impl<'a> Compiler<'a> {
     // Tries to find local, returns index if it can. </br>
     // Returns none otherwise.
     fn local_index(&mut self, identifier_token: Token) -> Option<u8> {
-        for i in (0..self.locals.len()).rev() {
-            let local = self.locals[i];
+        for i in (0..self.funpiler().locals.len()).rev() {
+            let local = self.funpiler().locals[i];
             if self.identifiers_equal(local.token, identifier_token) {
                 if local.depth == -1 { 
                     self.error_at_current("Can't read local variable in it's own initialiser.");
@@ -236,7 +322,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn while_statement(&mut self) {
-        let jump_landing = self.chunk.bytes.len();
+        let jump_landing = self.funpiler().chunk.bytes.len();
         self.expression();
         self.consume(TokenType::Colon, "Expect ':' after condition.");
         self.consume(TokenType::NewLine, "Expect newline after ':'");
@@ -257,14 +343,14 @@ impl<'a> Compiler<'a> {
     }
 
     fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.funpiler().scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        self.scope_depth -= 1;
-        while let Some(local) = self.locals.last() {
-            if local.depth <= self.scope_depth as i32 { break; }
-            self.locals.pop();
+        self.funpiler().scope_depth -= 1;
+        while let Some(local) = self.funpiler().locals.last() {
+            if local.depth <= self.funpiler().scope_depth as i32 { break; }
+            self.funpiler().locals.pop();
             self.emit_byte(OpCode::Pop);
         }
     }
@@ -457,7 +543,8 @@ impl<'a> Compiler<'a> {
     }
     
     fn emit_byte(&mut self, byte: impl Into<u8>) {
-        self.chunk.write_byte(byte.into(), self.previous_token.line);
+        let line = self.previous_token.line;
+        self.funpiler().chunk.write_byte(byte.into(), line);
     }
 
     fn emit_constant(&mut self, value: Value) {
@@ -467,7 +554,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn make_constant(&mut self, value: Value) -> u8 {
-        let constant_index = self.chunk.write_constant(value);
+        let constant_index = self.funpiler().chunk.write_constant(value);
         if let Ok(index_u8) = u8::try_from(constant_index) {
             return index_u8;
         }
@@ -479,7 +566,7 @@ impl<'a> Compiler<'a> {
 
     fn emit_back_jump(&mut self, landing: usize) {
         self.emit_byte(OpCode::JumpBack);
-        let jump = self.chunk.bytes.len() - landing + 2;
+        let jump = self.funpiler().chunk.bytes.len() - landing + 2;
         if jump > u16::MAX.into() { self.error_at_current("Too much code to jump over."); }
         self.emit_byte(((jump >> 8) & 0xff) as u8);
         self.emit_byte((jump & 0xff) as u8);
@@ -489,20 +576,26 @@ impl<'a> Compiler<'a> {
         self.emit_op(jump_op);
         self.emit_byte(0);
         self.emit_byte(0);
-        return self.chunk.bytes.len() - 2;
+        return self.funpiler().chunk.bytes.len() - 2;
     }
 
     fn patch_jump(&mut self, offset: usize) {
-        let jump = self.chunk.bytes.len() - offset - 2;
+        let jump = self.funpiler().chunk.bytes.len() - offset - 2;
 
         if jump > u16::MAX.into() { self.error_at_current("Too much code to jump over."); }
-        self.chunk.bytes[offset] = ((jump >> 8) & 0xff) as u8;
-        self.chunk.bytes[offset + 1] = (jump & 0xff) as u8;
+        self.funpiler().chunk.bytes[offset] = ((jump >> 8) & 0xff) as u8;
+        self.funpiler().chunk.bytes[offset + 1] = (jump & 0xff) as u8;
     }
 }
 
 // Helpers
 impl<'a> Compiler<'a> {
+
+    /// Grabs the current funpiler from the top of the stack. </br>
+    /// Will panic if there are no funpilers on the stack.
+    fn funpiler(&mut self) -> &mut Funpiler {
+        return self.funpiler_stack.last_mut().unwrap();
+    }
 
     fn synchronise(&mut self) {
         self.panic_mode = false;
