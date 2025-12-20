@@ -67,18 +67,24 @@ impl<'a> Compiler<'a> {
         while self.match_token(TokenType::Eof) == false {
             self.declaration();
         }
-        self.finish();
-        if self.had_error {
-            return Err(self.errors)
-        }
 
         let script_function = self.end_funpiler();
 
-        return Ok(CompilerOutput { script_function, globals_count: self.globals_state.len() });
-    }
 
-    fn finish(&mut self) {
-        self.emit_op(OpCode::Return);
+        let globals: Vec<_> = self.globals_state.values().cloned().collect();
+        for (_, declared, tokens) in globals {
+            if !declared {
+                for token in tokens.iter() {
+                    self.error_at(*token, "Undefined global variable.");
+                    self.panic_mode = false;
+                }
+            }
+        }
+
+        if self.had_error {
+            return Err(self.errors)
+        }
+        return Ok(CompilerOutput { script_function, globals_count: self.globals_state.len() });
     }
 }
 
@@ -118,6 +124,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn end_funpiler(&mut self) -> Function {
+        self.emit_byte(OpCode::Null);
+        self.emit_byte(OpCode::Return);
         let funpiler = self.funpiler_stack.pop().unwrap();
         let function = Function {
             name: funpiler.name,
@@ -169,8 +177,6 @@ impl<'a> Compiler<'a> {
         self.consume(TokenType::NewLine, "Expect newline after ':' in function definition.");
         self.consume(TokenType::Indent, "Expect indentation.");
         self.block();
-        self.emit_byte(OpCode::Null);
-        self.emit_byte(OpCode::Return);
 
         return self.end_funpiler();
         

@@ -1,9 +1,10 @@
-var i = 3
+
+var a = 1
 
 fn add(a, b):
-    if a == 1:
-        return a + b
-    return b
+    var x = a + b
+    return x
 
-var x = add(4, 2)
-print x
+x = 3
+y = 2
+print add(5, 3)
