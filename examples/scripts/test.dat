@@ -4,6 +4,6 @@ fn add(a, b):
 
 var t = time()
 
-print add(5, 3)
+print(add(5, 3))
 
-print time() - t
+print(time() - t)

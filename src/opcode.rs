@@ -5,7 +5,6 @@ use std::fmt::Display;
 #[derive(Debug, Clone, Copy)]
 pub enum OpCode {
     Constant,
-    Print,
     Pop,
     Equal,
     Not,
@@ -35,7 +34,6 @@ impl From::<OpCode> for u8 {
     fn from(value: OpCode) -> Self {
         match value {
             OpCode::Constant => 0,
-            OpCode::Print => 1,
             OpCode::Pop => 2,
             OpCode::Equal => 3,
             OpCode::Not => 4,
@@ -69,7 +67,6 @@ impl TryFrom::<u8> for OpCode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(OpCode::Constant),
-            1 => Ok(OpCode::Print),
             2 => Ok(OpCode::Pop),
             3 => Ok(OpCode::Equal),
             4 => Ok(OpCode::Not),

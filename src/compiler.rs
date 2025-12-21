@@ -349,10 +349,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn statement(&mut self) {
-        if self.match_token(TokenType::Print) {
-            self.print_statement();
-        }
-        else if self.match_token(TokenType::If) {
+        if self.match_token(TokenType::If) {
             self.if_statement();
         }
         else if self.match_token(TokenType::Return) {
@@ -442,12 +439,6 @@ impl<'a> Compiler<'a> {
             self.funpiler().locals.pop();
             self.emit_byte(OpCode::Pop);
         }
-    }
-
-    fn print_statement(&mut self) {
-        self.expression();
-        self.consume(TokenType::NewLine, "Expect newline after expression.");
-        self.emit_op(OpCode::Print);
     }
 
     fn expression_statement(&mut self) {
@@ -609,7 +600,6 @@ impl<'a> Compiler<'a> {
             TokenType::If =>            ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
             TokenType::Null =>          ParseRule::new(ParseFn::Literal, ParseFn::None, ParsePrecedence::None),
             TokenType::Or =>            ParseRule::new(ParseFn::None, ParseFn::Or, ParsePrecedence::Or),
-            TokenType::Print =>         ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
             TokenType::Return =>        ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
             TokenType::True =>          ParseRule::new(ParseFn::Literal, ParseFn::None, ParsePrecedence::None),
             TokenType::Var =>           ParseRule::new(ParseFn::None, ParseFn::None, ParsePrecedence::None),
@@ -623,7 +613,7 @@ impl<'a> Compiler<'a> {
 
 impl<'a> Compiler<'a> {
     fn emit_op(&mut self, code: OpCode) {
-        self.emit_byte(code as u8);
+        self.emit_byte(u8::from(code));
     }
 
     fn emit_ops(&mut self, op1: OpCode, op2: OpCode) {
@@ -703,7 +693,6 @@ impl<'a> Compiler<'a> {
                 | TokenType::For
                 | TokenType::If
                 | TokenType::While
-                | TokenType::Print
                 | TokenType::Return => {
                     return;
                 }

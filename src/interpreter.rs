@@ -58,21 +58,34 @@ impl Interpreter {
     }
 
     fn add_builtin_natives(&self, compiler: &mut Compiler) {
-        let time_native = NativeFunction {
+        let time = NativeFunction {
             name: "time".to_owned(),
             arity: 0,
             function: {
-                fn time_native(_: &[Value]) -> Value {
+                fn time(_: &[Value]) -> Value {
                     let secs = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
                         .as_secs_f64();
                     Value::Number(secs)
                 }
-                time_native
+                time
             },
         };
 
-        self.add_native(time_native, compiler);
+        let print = NativeFunction {
+            name: "print".to_owned(),
+            arity: 1,
+            function: {
+                fn print(vals: &[Value]) -> Value {
+                    println!("{}", vals[0]);
+                    return Value::Null;
+                }
+                print
+            },
+        };
+
+        self.add_native(time, compiler);
+        self.add_native(print, compiler);
     }
 }

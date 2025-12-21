@@ -191,7 +191,6 @@ impl<'a> Scanner<'a> {
             "if" => TokenType::If,
             "null" => TokenType::Null,
             "or" => TokenType::Or,
-            "print" => TokenType::Print,
             "return" => TokenType::Return,
             "true" => TokenType::True,
             "var" => TokenType::Var,

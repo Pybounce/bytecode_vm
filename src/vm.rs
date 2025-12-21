@@ -50,9 +50,6 @@ impl VM {
                     let val = self.read_constant();
                     self.stack.push(val);
                 },
-                OpCode::Print => {
-                    println!("{}", self.stack.pop().unwrap())
-                },
                 OpCode::Pop => { self.stack.pop(); },
                 OpCode::Equal => {
                     let b = self.stack.pop().unwrap();
@@ -243,8 +240,9 @@ impl VM {
             Value::NativeFunc(native_function) => {
                 let args_slice = &self.stack[(self.stack.len() - arg_count)..self.stack.len()];
                 let return_val = (native_function.function)(args_slice);
-                self.stack.truncate(self.stack.len() - arg_count);
+                self.stack.truncate(self.stack.len() - arg_count - 1);
                 self.stack.push(return_val);
+
             },
         }
 
