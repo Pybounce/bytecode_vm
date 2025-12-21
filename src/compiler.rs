@@ -127,7 +127,7 @@ impl<'a> Compiler<'a> {
 
         self.emit_constant(Value::Func(Rc::new(function)));
 
-        self.emit_op(OpCode::DefineGlobal);
+        self.emit_byte(OpCode::DefineGlobal);
         self.emit_byte(global_index);
     }
 
@@ -253,7 +253,7 @@ impl<'a> Compiler<'a> {
         if self.match_token(TokenType::Equal) {
             self.expression();
         } else {
-            self.emit_op(OpCode::Null);
+            self.emit_byte(OpCode::Null);
         }
         self.consume(TokenType::NewLine, "Expect newline after expression.");
 
@@ -269,10 +269,10 @@ impl<'a> Compiler<'a> {
         if self.match_token(TokenType::Equal) {
             self.expression();
         } else {
-            self.emit_op(OpCode::Null);
+            self.emit_byte(OpCode::Null);
         }
         self.consume(TokenType::NewLine, "Expect newline after expression.");
-        self.emit_op(OpCode::DefineGlobal);
+        self.emit_byte(OpCode::DefineGlobal);
         self.emit_byte(global_index);
     }
 
@@ -324,11 +324,11 @@ impl<'a> Compiler<'a> {
 
         if can_assign && self.match_token(TokenType::Equal) {
             self.expression();
-            self.emit_op(set_op);
+            self.emit_byte(set_op);
             self.emit_byte(index);
         }
         else {
-            self.emit_op(get_op);
+            self.emit_byte(get_op);
             self.emit_byte(index);
         }
     }
@@ -444,7 +444,7 @@ impl<'a> Compiler<'a> {
     fn expression_statement(&mut self) {
         self.expression();
         self.consume(TokenType::NewLine, "Expect newline after expression.");
-        self.emit_op(OpCode::Pop);
+        self.emit_byte(OpCode::Pop);
     }
 
     fn expression(&mut self) {
@@ -475,16 +475,16 @@ impl<'a> Compiler<'a> {
         }
         
         match operator {
-            TokenType::BangEqual =>     self.emit_ops(OpCode::Equal, OpCode::Not),
-            TokenType::EqualEqual =>    self.emit_op(OpCode::Equal),
-            TokenType::Greater =>       self.emit_op(OpCode::Greater),
-            TokenType::GreaterEqual =>  self.emit_ops(OpCode::Less, OpCode::Not),
-            TokenType::Less =>          self.emit_op(OpCode::Less),
-            TokenType::LessEqual =>     self.emit_ops(OpCode::Greater, OpCode::Not),
-            TokenType::Plus =>          self.emit_op(OpCode::Add),
-            TokenType::Minus =>         self.emit_op(OpCode::Subtract),
-            TokenType::Star =>          self.emit_op(OpCode::Multiply),
-            TokenType::Slash =>         self.emit_op(OpCode::Divide),
+            TokenType::BangEqual =>     self.emit_bytes(OpCode::Equal, OpCode::Not),
+            TokenType::EqualEqual =>    self.emit_byte(OpCode::Equal),
+            TokenType::Greater =>       self.emit_byte(OpCode::Greater),
+            TokenType::GreaterEqual =>  self.emit_bytes(OpCode::Less, OpCode::Not),
+            TokenType::Less =>          self.emit_byte(OpCode::Less),
+            TokenType::LessEqual =>     self.emit_bytes(OpCode::Greater, OpCode::Not),
+            TokenType::Plus =>          self.emit_byte(OpCode::Add),
+            TokenType::Minus =>         self.emit_byte(OpCode::Subtract),
+            TokenType::Star =>          self.emit_byte(OpCode::Multiply),
+            TokenType::Slash =>         self.emit_byte(OpCode::Divide),
             _ => self.error_at_current("binary operator mismatch."),
         };
         
@@ -526,8 +526,8 @@ impl<'a> Compiler<'a> {
         self.parse_precedence(ParsePrecedence::Unary);
 
         match operator {
-            TokenType::Bang => self.emit_op(OpCode::Not),
-            TokenType::Minus => self.emit_op(OpCode::Negate),
+            TokenType::Bang => self.emit_byte(OpCode::Not),
+            TokenType::Minus => self.emit_byte(OpCode::Negate),
             _ => self.error_at_previous("Unreachable unary operator...reached."),
         }
     }
@@ -612,15 +612,6 @@ impl<'a> Compiler<'a> {
 }
 
 impl<'a> Compiler<'a> {
-    fn emit_op(&mut self, code: OpCode) {
-        self.emit_byte(u8::from(code));
-    }
-
-    fn emit_ops(&mut self, op1: OpCode, op2: OpCode) {
-        self.emit_op(op1);
-        self.emit_op(op2);
-    }
-    
     fn emit_byte(&mut self, byte: impl Into<u8>) {
         let line = self.previous_token.line;
         self.funpiler().chunk.write_byte(byte.into(), line);
@@ -632,7 +623,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn emit_constant(&mut self, value: Value) {
-        self.emit_op(OpCode::Constant);
+        self.emit_byte(OpCode::Constant);
         let constant_index = self.make_constant(value);
         self.emit_byte(constant_index);
     }
@@ -657,7 +648,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn emit_jump(&mut self, jump_op: OpCode) -> usize {
-        self.emit_op(jump_op);
+        self.emit_byte(jump_op);
         self.emit_byte(0);
         self.emit_byte(0);
         return self.funpiler().chunk.bytes.len() - 2;
