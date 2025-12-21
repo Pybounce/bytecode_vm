@@ -7,4 +7,4 @@ pub(crate) mod value;
 pub(crate) mod parse;
 pub(crate) mod vm;
 pub mod interpreter;
-pub use value::NativeFunction;
+pub use {value::NativeFunction, value::Value};
