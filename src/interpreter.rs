@@ -1,9 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{compiler::Compiler, value::{NativeFunction, Value}, vm::VM};
+use crate::{compiler::{Compiler, CompilerOutput}, value::{NativeFunction, Value}, vm::VM};
 
 pub struct Interpreter {
     source: String,
+    vm: VM
 }
 
 pub enum InterpretResult {
@@ -24,40 +25,46 @@ pub struct CompilerError {
 }
 
 impl Interpreter {
-    pub fn new(source: String) -> Self {
-        Self {
-            source,
-        }
-    }
-    pub fn interpret(&mut self, natives: Vec<NativeFunction>) -> InterpretResult {
+    pub fn new(source: String, natives: Vec<NativeFunction>) -> Result<Self, Vec<CompilerError>> {
+        let mut compiler = Compiler::new(&source);
 
-        let mut compiler = Compiler::new(&self.source);
-
-        self.add_builtin_natives(&mut compiler);
+        add_builtin_natives(&mut compiler);
 
         for native in natives.into_iter() {
-            self.add_native(native, &mut compiler);
+            compiler.add_native(native);
         }
 
         match compiler.compile() {
             Ok(compiler_out) => {
-                let mut vm = VM::new();
-                return match vm.interpret(compiler_out) {
-                    Ok(()) => InterpretResult::Ok,
-                    Err(runtime_err) => InterpretResult::RuntimeErr(runtime_err),
+                let vm = VM::new(compiler_out);
+
+                let interpreter = Self {
+                    source,
+                    vm: vm,
                 };
+                return Ok(interpreter);
+
             },
             Err(compiler_errors) => {
-                return InterpretResult::CompileErr(compiler_errors);
+                return Err(compiler_errors);
             },
         }
+
+    }
+    pub fn run(&mut self) -> InterpretResult {
+        return match self.vm.run() {
+            Ok(()) => InterpretResult::Ok,
+            Err(runtime_err) => InterpretResult::RuntimeErr(runtime_err),
+        };
     }
 
-    pub fn add_native(&self, native: NativeFunction, compiler: &mut Compiler) {
-        compiler.add_native(native);
+    pub fn step(&mut self) -> Result<bool, RuntimeError> {
+        return self.vm.step();
     }
 
-    fn add_builtin_natives(&self, compiler: &mut Compiler) {
+}
+
+    fn add_builtin_natives(compiler: &mut Compiler) {
         let time = NativeFunction {
             name: "time".to_owned(),
             arity: 0,
@@ -85,7 +92,6 @@ impl Interpreter {
             },
         };
 
-        self.add_native(time, compiler);
-        self.add_native(print, compiler);
+        compiler.add_native(time);
+        compiler.add_native(print);
     }
-}

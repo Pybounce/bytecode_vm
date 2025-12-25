@@ -17,135 +17,142 @@ struct CallFrame {
 }
 
 impl VM {
-    pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-            globals: Vec::new(),
-            call_frames: Vec::new()
-        }
-    }
-
-    pub fn interpret(&mut self, compiler_output: CompilerOutput) -> Result<(), RuntimeError> {
-        self.call_frames.push(CallFrame {
+    pub fn new(compiler_output: CompilerOutput) -> Self {
+        let call_frames = vec![CallFrame {
             function: Rc::new(compiler_output.script_function),
             stack_offset: 0,
             pc: 0,
-        });
-        self.globals = vec![None; compiler_output.globals_count];
+        }];
+        let mut globals = vec![None; compiler_output.globals_count];
         for (i, native) in compiler_output.natives.into_iter().enumerate() {
-            self.globals[i] = Some(Value::NativeFunc(Rc::new(native)));            
+            globals[i] = Some(Value::NativeFunc(Rc::new(native)));            
         }
-        return self.run();
+        Self {
+            stack: Vec::new(),
+            globals: globals,
+            call_frames: call_frames
+        }
     }
 
-    fn run(&mut self) -> Result<(), RuntimeError> {
-        loop {
-            let operation = OpCode::try_from(self.read_byte());
-            if operation.is_err() { 
-                let err = self.runtime_error("Failed to convert byte to opcode");
-                return Err(err);
-            }
-            match operation.unwrap() {
-                OpCode::Constant => {
-                    let val = self.read_constant();
-                    self.stack.push(val);
-                },
-                OpCode::Pop => { self.stack.pop(); },
-                OpCode::Equal => {
-                    let b = self.stack.pop().unwrap();
-                    let a = self.stack.pop().unwrap();
-                    self.stack.push(Value::Bool(a == b));
-                },
-                OpCode::Not => {
-                    let val = self.stack.pop().unwrap();
-                    let not_val = self.is_falsey(&val);
-                    self.stack.push(Value::Bool(not_val));
-                },
-                OpCode::Greater => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a > b)) { return Err(e); } },
-                OpCode::Less => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a < b)) { return Err(e); } },
-                OpCode::Add => {
-                    if matches!(&self.stack[self.stack.len() - 1], Value::String(_)) && matches!(&self.stack[self.stack.len() - 2], Value::String(_)) {
-                        if let Err(e) = self.concatenate() { return Err(e); }
-                    }
-                    else if let Err(e) = self.binary_number_op(|a, b| Value::Number(a + b)) { return Err(e); }
-                 },
-                OpCode::Subtract => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a - b)) { return Err(e); } },
-                OpCode::Multiply => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a * b)) { return Err(e); } },
-                OpCode::Divide => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a / b)) { return Err(e); } },
-                OpCode::Negate => {
-                    let val = self.stack.pop().unwrap();
-                    if let Value::Number(n) = val {
-                        self.stack.push(Value::Number(-n));
-                    } else { 
-                        let err = self.runtime_error("Negate operand must be number."); 
-                        return Err(err);
-                    }
-                },
-                OpCode::Null => self.stack.push(Value::Null),
-                OpCode::DefineGlobal => {
-                    self.write_global();
-                    self.stack.pop();
-                },
-                OpCode::SetLocal => {
-                    let local_stack_index = self.read_byte();
-                    let val = self.stack.last().unwrap().clone();
-                    self.stack_set(local_stack_index as usize, val);
-                },
-                OpCode::GetLocal => {
-                    let local_stack_index = self.read_byte();
-                    let val = self.stack_get(local_stack_index as usize);
+    pub fn step(&mut self) -> Result<bool, RuntimeError> {
+        let operation = OpCode::try_from(self.read_byte());
+        if operation.is_err() { 
+            let err = self.runtime_error("Failed to convert byte to opcode");
+            return Err(err);
+        }
+        match operation.unwrap() {
+            OpCode::Constant => {
+                let val = self.read_constant();
+                self.stack.push(val);
+            },
+            OpCode::Pop => { self.stack.pop(); },
+            OpCode::Equal => {
+                let b = self.stack.pop().unwrap();
+                let a = self.stack.pop().unwrap();
+                self.stack.push(Value::Bool(a == b));
+            },
+            OpCode::Not => {
+                let val = self.stack.pop().unwrap();
+                let not_val = self.is_falsey(&val);
+                self.stack.push(Value::Bool(not_val));
+            },
+            OpCode::Greater => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a > b)) { return Err(e); } },
+            OpCode::Less => { if let Err(e) = self.binary_number_op(|a, b| Value::Bool(a < b)) { return Err(e); } },
+            OpCode::Add => {
+                if matches!(&self.stack[self.stack.len() - 1], Value::String(_)) && matches!(&self.stack[self.stack.len() - 2], Value::String(_)) {
+                    if let Err(e) = self.concatenate() { return Err(e); }
+                }
+                else if let Err(e) = self.binary_number_op(|a, b| Value::Number(a + b)) { return Err(e); }
+             },
+            OpCode::Subtract => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a - b)) { return Err(e); } },
+            OpCode::Multiply => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a * b)) { return Err(e); } },
+            OpCode::Divide => { if let Err(e) = self.binary_number_op(|a, b| Value::Number(a / b)) { return Err(e); } },
+            OpCode::Negate => {
+                let val = self.stack.pop().unwrap();
+                if let Value::Number(n) = val {
+                    self.stack.push(Value::Number(-n));
+                } else { 
+                    let err = self.runtime_error("Negate operand must be number."); 
+                    return Err(err);
+                }
+            },
+            OpCode::Null => self.stack.push(Value::Null),
+            OpCode::DefineGlobal => {
+                self.write_global();
+                self.stack.pop();
+            },
+            OpCode::SetLocal => {
+                let local_stack_index = self.read_byte();
+                let val = self.stack.last().unwrap().clone();
+                self.stack_set(local_stack_index as usize, val);
+            },
+            OpCode::GetLocal => {
+                let local_stack_index = self.read_byte();
+                let val = self.stack_get(local_stack_index as usize);
 
-                    self.stack.push(val);
-                },
-                OpCode::SetGlobal => {
-                    self.write_global();
-                },
-                OpCode::GetGlobal => {
-                    match self.read_global() {
-                        Some(global_val) => { self.stack.push(global_val); },
-                        None => {
-                            let err = self.runtime_error("Undefined variable.");
-                            return Err(err);
-                        },
-                    }
-                },
-                OpCode::JumpIfFalse => {
-                    let jump = self.read_short() as usize;
-                    if self.is_falsey(self.stack.last().unwrap()) {
-                        self.frame_mut().pc += jump;
-                    }
-                },
-                OpCode::Jump => {
-                    let jump = self.read_short() as usize;
+                self.stack.push(val);
+            },
+            OpCode::SetGlobal => {
+                self.write_global();
+            },
+            OpCode::GetGlobal => {
+                match self.read_global() {
+                    Some(global_val) => { self.stack.push(global_val); },
+                    None => {
+                        let err = self.runtime_error("Undefined variable.");
+                        return Err(err);
+                    },
+                }
+            },
+            OpCode::JumpIfFalse => {
+                let jump = self.read_short() as usize;
+                if self.is_falsey(self.stack.last().unwrap()) {
                     self.frame_mut().pc += jump;
-                },
-                OpCode::JumpBack => {
-                    let jump = self.read_short() as usize;
-                    self.frame_mut().pc -= jump;
-                },
-                OpCode::True => self.stack.push(Value::Bool(true)),
-                OpCode::False => self.stack.push(Value::Bool(false)),
-                OpCode::Call => {
-                    let arg_count = self.read_byte() as usize;
-                    let callee_idx = self.stack.len() - 1 - arg_count;
-                    let callee = self.stack[callee_idx].clone();
-                    if self.call_value(callee, arg_count) == false {
-                        let err = self.runtime_error("Failed to call callee"); //TODO - trash error
-                        return Err(err);
-                    }
-                },
-                OpCode::Return => {
-                    let return_val = self.stack.pop().unwrap();
-                    self.stack.truncate(self.frame().stack_offset);
-                    self.call_frames.pop();
+                }
+            },
+            OpCode::Jump => {
+                let jump = self.read_short() as usize;
+                self.frame_mut().pc += jump;
+            },
+            OpCode::JumpBack => {
+                let jump = self.read_short() as usize;
+                self.frame_mut().pc -= jump;
+            },
+            OpCode::True => self.stack.push(Value::Bool(true)),
+            OpCode::False => self.stack.push(Value::Bool(false)),
+            OpCode::Call => {
+                let arg_count = self.read_byte() as usize;
+                let callee_idx = self.stack.len() - 1 - arg_count;
+                let callee = self.stack[callee_idx].clone();
+                if self.call_value(callee, arg_count) == false {
+                    let err = self.runtime_error("Failed to call callee"); //TODO - trash error
+                    return Err(err);
+                }
+            },
+            OpCode::Return => {
+                let return_val = self.stack.pop().unwrap();
+                self.stack.truncate(self.frame().stack_offset);
+                self.call_frames.pop();
 
-                    if self.call_frames.len() == 0 {
-                        self.stack.pop();
-                        return Ok(());
-                    }
+                if self.call_frames.len() == 0 {
+                    self.stack.pop();
+                    return Ok(false);
+                }
 
-                    self.stack.push(return_val);
+                self.stack.push(return_val);
+            },
+        }
+        return Ok(true);
+        
+    }
+
+    pub fn run(&mut self) -> Result<(), RuntimeError> {
+        loop {
+            match self.step() {
+                Ok(has_next) => {
+                    if has_next == false { return Ok(()); }
                 },
+                Err(runtime_err) => { return Err(runtime_err); },
             }
         }
     }
