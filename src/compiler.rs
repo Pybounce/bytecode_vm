@@ -1020,4 +1020,33 @@ var c = b = a"#;
         assert_eq!(expected_chunk, output.script_function.chunk);
         assert_eq!(expected_global_count, output.globals_count);
     }
+
+    #[test]
+    fn define_local() {
+        let source = r#"
+if true:
+    var x = 2"#;
+        let compiler = Compiler::new(&source);
+        
+        let expected_chunk = Chunk {
+            bytes: vec![
+                OpCode::True.into(),
+                OpCode::JumpIfFalse.into(), 0, 7,
+                OpCode::Pop.into(),
+                OpCode::Constant.into(), 0,
+                OpCode::Pop.into(),
+                OpCode::Jump.into(), 0, 1,
+                OpCode::Pop.into(),
+                OpCode::Null.into(),
+                OpCode::Return.into()
+            ],
+            lines: vec![2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            constants: vec![Value::Number(2.0)],
+        };
+        let expected_global_count = 0;
+
+        let output = compiler.compile().expect("Failed to compile");
+        assert_eq!(expected_chunk, output.script_function.chunk);
+        assert_eq!(expected_global_count, output.globals_count);    
+    }
 }
