@@ -23,7 +23,7 @@ use crate::chunk::Chunk;
 pub struct NativeFunction {
     pub name: String,
     pub arity: u8,
-   pub function: Box<dyn Fn(&[Value]) -> Value>,
+    pub function: Box<dyn Fn(&[Value]) -> Value>,
 }
 
 impl PartialEq for NativeFunction {
