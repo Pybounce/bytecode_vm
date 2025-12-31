@@ -40,9 +40,14 @@ fn main() {
 fn run_from_path(path: &str) {
     let path = Path::new(path);
     let source: String = fs::read_to_string(path).expect("Failed to read file");
-    let mut interpreter = Interpreter::new(source, Vec::new()).unwrap();
-    match interpreter.run() {
-        Ok(_) => (),
-        Err(runtime_e) => println!("{:?}", runtime_e.message),
+    if let Ok(mut interpreter) = Interpreter::new(source, Vec::new()) {
+        match interpreter.run() {
+            Ok(_) => (),
+            Err(runtime_e) => println!("{:?}", runtime_e.message),
+        }    
     }
+    else {
+        println!("Failed to compile.")
+    }
+
 }
