@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./logo.svg" height="370" width="370">
+  <img src="./logo.svg" height="340" width="340">
   <h1>gart</h1>
   <h3>A python-like scripted language named after the similarly underwhelming snake.</h3>
   <h5>Equipped with primitives (number, bool, string, null), first class functions and native functions, Gart lacks any of the depth found in a real language, but makes up for it with a cute logo.</h5>
@@ -15,12 +15,11 @@ More details can be found at https://github.com/Pybounce/sandbox.
 
 ### CLI
 
-| Command                    | Description                          |
-| :------------------------- | :----------------------------------- |
-| todo                       | todo            |
-
+| Command                               | Description               |
+| :------------------------------------ | :------------------------ |
+| cargo run -r -- --path [file_path]    | Run any file.             |
+| cargo run -r --example [example_name] | Run any built in example. |
+| cargo run -r -- --help                | Display this message.     |
 
 > [!Note]
-> For more detailed usage, look at the Interpreter/examples/ directory.
-
-
+> For more detailed usage of the language, look at the Interpreter/examples/ directory.
