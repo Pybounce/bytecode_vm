@@ -1002,6 +1002,22 @@ var g = 2"#;
     }
 
     #[test]
+    fn error_unterminated_string() {
+        let source = r#"var x = "my_string"#;
+        let compiler = Compiler::new(&source);
+        
+        let expected_err_positions: Vec<(usize, usize, usize)> = vec![(1, 8, 10)];
+
+        let output = compiler.compile().unwrap_err();
+        assert_eq!(expected_err_positions.len(), output.len());
+        for (line, start, len) in expected_err_positions.iter() {
+            assert_eq!(*line, output[0].line);
+            assert_eq!(*start, output[0].start);
+            assert_eq!(*len, output[0].len);
+        }
+    }
+
+    #[test]
     fn chained_assignment() {
         let source = r#"
 var a = 1
