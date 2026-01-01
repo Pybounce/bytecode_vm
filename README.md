@@ -1,52 +1,58 @@
-## Language
+<div align="center">
+  <img src="./logo.svg" height="340" width="340">
+  <h1>gart</h1>
+  <h3>A python-like scripting language named after the similarly underwhelming snake.</h3>
+  <h5>Equipped with primitives (number, bool, string, null), first class functions and native functions, Gart lacks any of the depth found in a real language, but makes up for it with a cute logo.</h5>
+</div>
 
-- Allowing underscores in numbers (ie 1_000_000)
-- Ranges
-- String interpolation
+```py
+fn say_hello(name):
+    print("hello " + name)
 
-## Next Up!
+var name = input("Enter your name: ")
 
-- [ ] Calling functions
-  - Go over stack frames and how they could work in rust
-  - Returns and such (why do we need to push a value to the stack denoting the current function, we may never know. Well I'll know. Tomorrow. So yeah tomorrow we will know. OK. You're typing to nobody. Why are you still typing nobody will ever read this. Unless one day machines gain sentience, scan the whole internet like they have already, find this, and then go "heh, nice". Hello. Ok for reals though this is bordering on disturbing)
-- [ ] An absolute tonne of unit tests
+say_hello(name)
+```
+- **Gart is fast.** The virtual machine runs cache friendly, byte-sized operations with both locals and globals stored in densely packed vectors.
+- **Gart is minimal.** It keeps Python‑like readability while adding only essential structure where it improves clarity or compilation, such as explicit `var` declarations.
+- **Gart is safe.** Written in entirely safe Rust code, guaranteeing memory safety.
+- **Gart is ergonomic.** The API is designed to be easy to embed and interact with, offering features like a step function that allows for better debugging, live visualization, and smooth frontend updates during execution.
+<br></br>
+## Usage
 
-## Improvements
+### Sandbox
 
-- [ ] Define global and set global are the same, remove define.
-- [ ] Use impl Into<u8> for writing bytes etc
-- [ ] Remove can_assign from most things
-  - Since we just have a match to manually call methods, and those methods don't need the same signature.
+The best way to use Gart is with the sandbox found at https://sandbox.skybounce.io.
+- It comes with an array of examples and built in natives.
+- More details can be found at https://github.com/Pybounce/sandbox.
+<br></br>
+### CLI
 
-## Tests
+| Command                               | Description               |
+| :------------------------------------ | :------------------------ |
+| cargo run -r -- --path [file_path]    | Run any file.             |
+| cargo run -r --example [example_name] | Run any built in example. |
+| cargo run -r -- --help                | Display this message.     |
 
-- [ ] NOT operator
-  - <= >= != etc
-- [ ] If/Else statements
-- [ ] While loops
-- [ ] Literals (true/false/null)
-- [ ] and/or
-- [ ] Jump
-- [ ] Locals
-- [ ] Natives
-  - Make sure adding a native with the same name overwrites the old one and gives the same index.
+## Natives
 
-**Static Typing**
+- `time()`
+  - Returns the time in seconds.
+- `print(string)`
+  - Prints the string to the output.
+- `random_range(min, max)`
+  - Requires arguments to be numbers, returns a random number between them (inclusive). Returns null otherwise.
+- `number(val)`
+  - Attempts to convert the value to a number and returns it. Returns null otherwise.
+- `string(val)`
+  - Attempts to convert the value to a string and returns it. Returns null otherwise.
+- `input(msg)`
+  - Prompts user with msg, returns the user input.
+- `clear()`
+  - Clears the output.
+- `round(num)`
+  - Returns the number rounded to the nearest integer. Returns null on failure.
 
-- This matters now since it either may change how the compiler is structured completely OR it'll change how globals work. 2 Pass will be easier to type check over patching.
-- _PROS_
-  - Static typing is the cats pajamas
-  - Leaving things to compile time is pretty much always better and I love it
-- _CONS_
-  - Added compiler complexity
-    - The compiler is already single pass
-    - This would more or less REQUIRE the globals to be done with 2 pass
-  - REPL becomes basically impossible
-    - I could still have the type checking at runtime
-    - It would mean static types give no performance gain BUT they do give compile time type safety.
+> [!Note]
+> Though all of these natives will be avaliable in the sandbox, some may be overriden to work with js, and new natives added.
 
-**REPL Static Typing**
-
-- All REPL does is compile your new line and run it.
-- All static typing does it keep some type-checking context
-- So if I can separate that context, I can just pass it to the new compiler each time.
