@@ -2,7 +2,7 @@
   <img src="./logo.svg" height="340" width="340">
   <h1>gart</h1>
   <h3>A python-like scripting language named after the similarly underwhelming snake.</h3>
-  <h5>Equipped with primitives (number, bool, string, null), first class functions and native functions, Gart lacks any of the depth found in a real language, but makes up for it with a cute logo.</h5>
+  <h5>Equipped with primitives (number, bool, string, null), first class functions and native functions, Gart is made to be a minimaltic but fast language, and has served as my project to learn how interpreted languages work at a much deeper level.</h5>
 </div>
 
 ```py
