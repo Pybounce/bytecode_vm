@@ -59,9 +59,7 @@ impl Interpreter {
         return self.vm.step();
     }
 
-}
-
-    fn add_builtin_natives(compiler: &mut Compiler) {
+    pub fn builtin_natives() -> Vec<NativeFunction> {
         let time = NativeFunction {
             name: "time".to_owned(),
             arity: 0,
@@ -76,7 +74,6 @@ impl Interpreter {
                 Box::new(time)
             },
         };
-
         let print = NativeFunction {
             name: "print".to_owned(),
             arity: 1,
@@ -88,7 +85,6 @@ impl Interpreter {
                 Box::new(print)
             },
         };
-
         let random_range = NativeFunction {
             name: "random_range".to_owned(),
             arity: 2,
@@ -101,13 +97,10 @@ impl Interpreter {
                         },
                         _ => Value::Null
                     };
-
                 }
-
                 Box::new(random_range)
             },
         };
-
         let to_number = NativeFunction {
             name: "number".to_owned(),
             arity: 1,
@@ -125,7 +118,6 @@ impl Interpreter {
                 Box::new(number)
             },
         };
-
         let to_string = NativeFunction {
             name: "string".to_owned(),
             arity: 1,
@@ -142,7 +134,6 @@ impl Interpreter {
                 Box::new(to_string)
             },
         };
-
         let get_input = NativeFunction {
             name: "input".to_owned(),
             arity: 1,
@@ -157,7 +148,6 @@ impl Interpreter {
                 Box::new(input)
             },
         };
-
         let clear = NativeFunction {
             name: "clear".to_owned(),
             arity: 0,
@@ -169,7 +159,6 @@ impl Interpreter {
                 Box::new(clear)
             },
         };
-
         let round = NativeFunction {
             name: "round".to_owned(),
             arity: 1,
@@ -183,13 +172,14 @@ impl Interpreter {
                 Box::new(round)
             },
         };
-
-        compiler.add_native(time);
-        compiler.add_native(print);
-        compiler.add_native(random_range);
-        compiler.add_native(to_number);
-        compiler.add_native(to_string);
-        compiler.add_native(get_input);
-        compiler.add_native(clear);
-        compiler.add_native(round);
+        return vec![time, print, random_range, to_number, to_string, get_input, clear, round];
     }
+
+}
+
+fn add_builtin_natives(compiler: &mut Compiler) {
+    for native in Interpreter::builtin_natives() {
+        compiler.add_native(native);
+    }
+}
+

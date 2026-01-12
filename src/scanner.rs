@@ -303,6 +303,8 @@ impl<'a> Scanner<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::fs;
+
     use crate::{scanner::Scanner, token::{Token, TokenType}};
 
     #[test]
@@ -864,7 +866,22 @@ if x <= 1:
         }
     }
 
+    #[test]
+    fn guessing_game_snapshot() {
+        let source: String = fs::read_to_string("examples/scripts/guessing_game.gart").expect("Failed to read guessing_game.gart file");
+        let mut scanner = Scanner::new(&source);
 
+        let mut tokens: Vec<Token> = vec![];
+        let mut token = scanner.scan_token();
+
+        while token.token_type != TokenType::Eof {
+            tokens.push(token);
+            token = scanner.scan_token();
+        }
+        tokens.push(token);
+
+        insta::assert_debug_snapshot!(tokens);
+    }
 }
 
 

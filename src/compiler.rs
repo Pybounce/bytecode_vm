@@ -1,6 +1,6 @@
-use std::{backtrace, collections::HashMap, rc::Rc};
+use std::{backtrace, collections::HashMap, fs, rc::Rc};
 
-use crate::{chunk::Chunk, interpreter::CompilerError, opcode::OpCode, parse::{ParseFn, ParsePrecedence, ParseRule}, scanner::Scanner, token::{Token, TokenType}, value::{Function, NativeFunction, Value}};
+use crate::{chunk::Chunk, interpreter::{CompilerError, Interpreter}, opcode::OpCode, parse::{ParseFn, ParsePrecedence, ParseRule}, scanner::Scanner, token::{Token, TokenType}, value::{Function, NativeFunction, Value}};
 
 
 pub struct Compiler<'a> {
@@ -762,7 +762,9 @@ impl<'a> Compiler<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{NativeFunction, chunk::Chunk, compiler::{Compiler, CompilerError}, opcode::OpCode, value::Value};
+    use std::fs;
+
+    use crate::{NativeFunction, chunk::Chunk, compiler::{Compiler, CompilerError}, interpreter::Interpreter, opcode::OpCode, value::Value};
 
     #[test]
     fn arithmetic() {
@@ -1195,5 +1197,19 @@ else:
         assert_eq!(expected_global_count, output.globals_count);    
     }
     
+    #[test]
+    fn guessing_game_snapshot() {
+        let source: String = fs::read_to_string("examples/scripts/guessing_game.gart").expect("Failed to read guessing_game.gart file");
+        let mut compiler = Compiler::new(&source);
+        for native in Interpreter::builtin_natives() {
+            compiler.add_native(native);
+        }
+    
+        let output = compiler.compile().expect("Failed to compile");
+    
+        insta::assert_debug_snapshot!(output);
+    }
 
 }
+
+
